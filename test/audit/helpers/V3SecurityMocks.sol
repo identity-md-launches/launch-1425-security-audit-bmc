@@ -28,7 +28,7 @@ contract RegisteredChainlinkMock is VRFCoordinatorV2_5Mock {
 contract SequenceCoordinator is MockVRFCoordinator {
     bytes32 public constant KEY = keccak256("V3 sequence lane");
 
-    function s_provingKeys(bytes32 key) external pure returns (bool, uint64) {
+    function s_provingKeys(bytes32 key) external pure override returns (bool, uint64) {
         return (key == KEY, 500 gwei);
     }
 }

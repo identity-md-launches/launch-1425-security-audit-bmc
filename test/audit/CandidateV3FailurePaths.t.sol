@@ -475,3 +475,117 @@ contract CandidateV3ConstructorBoundsTest is Test {
         new V3(owner, token, coordinator, 99, 1, KEY, 150_000, 3, true, CID);
     }
 }
+
+contract CandidateV3DeploymentEncodingTest is Test {
+    string constant CID = "bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u";
+    uint256 constant GENESIS_PRICE = 1_000_000 ether;
+    MockBMC bmc;
+    SequenceCoordinator coord;
+    address owner = makeAddr("encoding owner");
+    address buyer = makeAddr("encoding buyer");
+    uint64 deadline;
+
+    function setUp() public {
+        vm.warp(1_800_000_000);
+        deadline = uint64(block.timestamp + 30 days);
+        bmc = new MockBMC();
+        coord = new SequenceCoordinator();
+        bmc.mint(buyer, 2_000_000 ether);
+    }
+
+    /// M-1: the deadline is an absolute timestamp chosen before the deployment transaction lands.
+    /// The same constructor words either revert (landing at or after the deadline) or silently
+    /// produce a sale whose window is already gone, with nothing sold and nothing recoverable.
+    function test_PrecomputedDeadlineLandingLateLeavesNoSaleWindow() public {
+        uint64 closingTime = uint64(block.timestamp + 1);
+        V3 late = new V3(owner, address(bmc), address(coord), closingTime, 123, coord.KEY(), 150_000, 3, true, CID);
+        assertEq(late.currentPrice(), GENESIS_PRICE, "window open for the single remaining second");
+
+        vm.warp(closingTime);
+        assertEq(late.currentPrice(), 0, "window closed one second after landing");
+        vm.prank(buyer);
+        bmc.approve(address(late), type(uint256).max);
+        vm.prank(buyer);
+        vm.expectRevert(V3.GenesisPhaseOver.selector);
+        late.mintGenesis();
+        vm.prank(buyer);
+        vm.expectRevert(V3.GenesisPhaseNotOver.selector);
+        late.mintMystery();
+        assertEq(late.totalMinted(), 0);
+        assertEq(late.totalBurned(), 0);
+
+        // Nothing can reopen or extend the sale: it closes with every position unsold.
+        late.closeSale();
+        assertTrue(late.saleClosed());
+        assertEq(late.remainingSupply(), 500);
+        vm.prank(owner);
+        vm.expectRevert(bytes("already closed"));
+        late.closeSale();
+
+        // One second later the identical words no longer deploy at all.
+        bytes32 key = coord.KEY();
+        vm.expectRevert(bytes("deadline must be future"));
+        new V3(owner, address(bmc), address(coord), closingTime, 123, key, 150_000, 3, true, CID);
+    }
+
+    /// M-1: the constructor ABI carries a dynamic `string` (parameter 10). A factory that can only
+    /// append one static 32-byte word per parameter cannot produce valid initcode for V3.
+    function test_ConstructorABIHasDynamicArgumentStaticWordsCannotEncode() public {
+        bytes memory encoded = abi.encode(
+            owner,
+            address(bmc),
+            address(coord),
+            deadline,
+            uint256(123),
+            coord.KEY(),
+            uint32(150_000),
+            uint16(3),
+            true,
+            CID
+        );
+        // 10 head words + string length word + 2 data words for a 59-byte CID.
+        assertEq(encoded.length, 13 * 32, "argument block is not ten static words");
+        bytes memory head = new bytes(10 * 32);
+        for (uint256 i; i < head.length; ++i) {
+            head[i] = encoded[i];
+        }
+        (,,,,,,,,, uint256 offset) =
+            abi.decode(head, (address, address, address, uint64, uint256, bytes32, uint32, uint16, bool, uint256));
+        assertEq(offset, 10 * 32, "tenth word is an offset into the tail, not the CID");
+
+        // Ten static words with the CID packed into the tenth word: construction reverts, so a
+        // static-word factory has no way to instantiate V3.
+        bytes memory cidBytes = bytes(CID);
+        bytes32 cidWord;
+        assembly ("memory-safe") {
+            cidWord := mload(add(cidBytes, 32))
+        }
+        bytes memory staticWords = abi.encode(
+            owner,
+            address(bmc),
+            address(coord),
+            deadline,
+            uint256(123),
+            coord.KEY(),
+            uint32(150_000),
+            uint16(3),
+            true,
+            cidWord
+        );
+        assertEq(staticWords.length, 10 * 32);
+        bytes memory initcode = abi.encodePacked(type(V3).creationCode, staticWords);
+        address deployed;
+        assembly ("memory-safe") {
+            deployed := create(0, add(initcode, 32), mload(initcode))
+        }
+        assertEq(deployed, address(0), "static-word encoding must not produce a V3 instance");
+
+        // The full dynamic encoding deploys, confirming the words themselves are valid.
+        initcode = abi.encodePacked(type(V3).creationCode, encoded);
+        assembly ("memory-safe") {
+            deployed := create(0, add(initcode, 32), mload(initcode))
+        }
+        assertTrue(deployed != address(0));
+        assertEq(V3(deployed).genesisImagesCID(), CID);
+    }
+}

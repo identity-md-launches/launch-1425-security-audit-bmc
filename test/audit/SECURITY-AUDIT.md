@@ -1,6 +1,8 @@
 # BMC Illuminati Pass Candidate V3 — adversarial audit follow-up
 
-**Mainnet verdict: NOT READY.** V3 has two reproduced high-severity liveness risks: loss of its sole seed request permanently prevents mystery reveals, and canceled immutable VRF configuration cannot be repaired after buyers have burned BMC. Passing tests and a successful deployment simulation do not resolve either risk. This contributor review is **not independent certification**.
+**Mainnet verdict: NOT READY.** V3 has two reproduced high-severity liveness risks: loss of its sole seed request permanently prevents mystery reveals, and canceled immutable VRF configuration cannot be repaired after buyers have burned BMC. Its constructor also cannot be encoded by the static-word launch factory and takes an absolute deadline that can expire or shrink the sale before deployment lands (M-1). Passing tests and a successful deployment simulation do not resolve any of these. This contributor review is **not independent certification**.
+
+**Revision note (2026-10-12).** An independent reviewer confirmed H-1, H-2 and L-1 with their own proofs, which reproduce on this tree, and raised the constructor issue now recorded as M-1. The merge of another contributor's accepted work had made this suite fail to compile (`s_provingKeys` became `virtual` in `test/mocks/MockVRFCoordinator.sol`, so `SequenceCoordinator` in `helpers/V3SecurityMocks.sol` needed `override`); that one word is the only change to existing test code. Nothing in the audited fixture changed: V3 is the read-only subject of this audit, so the H-1/H-2 proofs still fail by design and the defects remain open for the V3 author.
 
 This assignment changes tests and audit evidence only. No application, deployment script, dependency, configuration, wallet, subscription or live contract was changed. No transaction was broadcast and no message was signed.
 
@@ -18,6 +20,7 @@ Locations below use the **current fixture's line numbers**, with original-branch
 | --- | --- | --- | --- |
 | H-1 | High | One abandoned seed request permanently strands mystery reveals | [Failing proof](evidence/V3LostSeedProof.t.sol.txt), [observed failure](evidence/H-1-failing-proof.txt) |
 | H-2 | High | Canceled subscription cannot be replaced after irreversible burns | [Failing proof](evidence/V3CancelledSubscriptionProof.t.sol.txt), [observed failure](evidence/H-2-failing-proof.txt) |
+| M-1 | Medium | Constructor cannot be encoded by the static-word factory; absolute deadline can expire or shrink the sale before deployment lands | Passing documentation tests `CandidateV3DeploymentEncodingTest` in [CandidateV3FailurePaths.t.sol](CandidateV3FailurePaths.t.sol) |
 | L-1 | Low | An empty sale can spend subscription funds on unusable randomness | [Failing proof](evidence/V3EmptySaleFeeProof.t.sol.txt), [observed failure](evidence/L-1-failing-proof.txt) |
 
 These are also submitted in `.imd-findings.json`, including the complete standalone proof sources. Each proof was run individually and **failed at the stated assertion**, without a fork, FFI, another test harness or skipped tests. The imports target the preserved application fixture because the requested original source path does not exist in this checkout. The proof dependencies are already vendored libraries. The low-severity issue corresponds to L-3 in the earlier report; IDs in the table above are local to this follow-up.
@@ -48,6 +51,20 @@ These are also submitted in `.imd-findings.json`, including the complete standal
 
 **Recommendation:** Validate intended dependencies, subscription ownership, registration, funding and lane before opening minting. Validation at one point in time does not prevent subsequent cancellation. Design a constrained replacement path for future request parameters before seed receipt, keeping the trusted coordinator fixed and preserving accepted randomness. Such repair authority changes V3's current owner trust model and needs explicit design acceptance. Review subscription administration and monitoring as explicit buyer-facing trust assumptions.
 
+### M-1 — Constructor cannot be factory-encoded and its absolute deadline is deployment-sensitive
+
+**Locations:** fixture constructor lines 178–205: dynamic `string memory initialGenesisCID` parameter at line 188, `closingTime > block.timestamp` at line 191, `saleDeadline = closingTime` at line 202. Compare the production constructor, which hard-codes the CID and takes eight static words (`test/FactoryDeployment.t.sol`).
+
+**Encoding.** The launch factory appends one static 32-byte word per constructor parameter. V3's ABI-encoded argument block is **13 words** (ten head words plus a length word and two data words for the 59-byte CID), and the tenth head word is a tail offset, not the CID. `test_ConstructorABIHasDynamicArgumentStaticWordsCannotEncode` appends ten static words (the CID packed into a `bytes32`) to `type(V3).creationCode` and shows `CREATE` returns `address(0)`, while the full dynamic encoding deploys. No valid manifest entry can instantiate V3; the accepted `launch.json` lists only the production contract.
+
+**Deadline.** `closingTime` is chosen before the deployment transaction is submitted. `test_PrecomputedDeadlineLandingLateLeavesNoSaleWindow` deploys with `closingTime = now + 1`: construction succeeds, and one second later `currentPrice()` is `0`, `mintGenesis` reverts `GenesisPhaseOver`, `mintMystery` reverts `GenesisPhaseNotOver`, `closeSale()` succeeds with nothing sold and `remainingSupply() == 500`, and no owner call reopens or extends the sale. The identical words one second later revert `deadline must be future`. A landing delay therefore either blocks deployment or silently shortens the sale window.
+
+**Expected:** a constructor the factory can encode, with the sale window measured from deployment.
+
+**Actual:** a `string` parameter and an absolute timestamp. These tests pass because they document V3's real behaviour; the defect is the design and is reported rather than tested around.
+
+**Recommendation:** hard-code the verified CID as a constant (as `src/BMCIlluminatiPass.sol` does) and take a bounded sale duration that the constructor converts to a deadline. Until V3's constructor changes, it cannot be deployed through the launch factory at all.
+
 ### L-1 — Empty sale spends a request fee
 
 **Location:** fixture `requestSeed`, lines 254–277; no check requires `totalMinted > GENESIS_PHASE_SUPPLY`.
@@ -75,7 +92,7 @@ These are also submitted in `.imd-findings.json`, including the complete standal
 Additional deployment observations:
 
 - The V3 dry-run derives a fresh 30-day deadline, requires chain ID 1, a nonzero explicit owner and dependency code, then checks the resulting owner/CID/deadline. It does **not** verify consumer registration, sufficient VRF funding, successful oracle fulfillment or service liveness. Its successful simulation is evidence of constructor compatibility only.
-- V3's dynamic `string` constructor argument cannot be encoded by the static-word factory format in the supplied launch reference. This is a **factory integration condition**, not a Solidity deployment failure: direct deployment simulated successfully. The existing production adaptation is a different constructor and must not be substituted silently for the audited candidate.
+- V3's dynamic `string` constructor argument and absolute deadline are now finding M-1. Direct deployment with a full ABI encoding simulates successfully; the static-word factory cannot produce that encoding. The existing production adaptation is a different constructor and must not be substituted silently for the audited candidate.
 - A 500,000-gas budget is conservative for V3's storage-only callback; 150,000 succeeds in the existing callback test and official-mock integration. This does not justify reducing the different production contract's callback budget. Recalculate the service funding buffer using actual final deployment parameters. No fixed Mainnet fee or guaranteed fulfillment time is claimed.
 - After seed delivery and before finalization, outcomes can be calculated from the public seed while NFT metadata remains pending. The original pending description already discloses this. It remains a secondary-market information risk: show seed availability, provide a preview and arrange prompt bounded finalization. A small callback reveal batch would not eliminate the gap for the remaining tokens. Public seed availability is not proof that a buyer could choose rarity before the sale closes.
 - Three confirmations meet the configured minimum; this review does not establish that three confirmations make a reorganization economically unattractive at the collection's eventual market value.
@@ -88,7 +105,7 @@ The new passing suite adds failure-path/property tests, offline Chainlink integr
 
 The two allowance/balance properties each run **1,000 examples**, malformed burn behavior runs **256**, batch independence runs **128**, and native/LINK mock billing runs **64**. Existing tests retain their established run counts. Every submitted Solidity dependency is already present; default tests require no network or RPC environment. No test calls `vm.setEnv`.
 
-Final delivered-tree verification: **`forge build` passed; `forge test` passed with 102 passed, 0 failed, 3 fork skips.** The separately invoked V3 Mainnet fork suite passed **3/3** at the pinned block. The combined run includes **18,432 random handler calls** with zero unexpected reverts. [Build output](evidence/final-forge-build.txt), [complete test output](evidence/final-forge-test.txt), [targeted invariant output](evidence/invariant-tests.txt).
+Final delivered-tree verification (this revision, after the merge of the other contributor's VRF-configuration tests): **`forge build` passed; `forge test --offline` passed with 116 passed, 0 failed, 4 fork skips** (the skips are the three production and one V3 chain-id-1 fork tests). The previous round's own tree reported 102 passed and 3 skips; the upstream branch's "80 passed" is `docs/TEST-RESULTS.md`'s record of `bf2a63c`, not this tree. The separately invoked V3 Mainnet fork suite passed **3/3** at the pinned block in the previous round. The combined run includes **18,432 random handler calls** with zero unexpected reverts. [Build output](evidence/final-forge-build.txt), [complete test output](evidence/final-forge-test.txt), [targeted invariant output](evidence/invariant-tests.txt). The independent reviewer's two proofs for H-1 and H-2 were copied under `test/scratch/` and run on this tree: both fail at the stated assertions, as do the three evidence proofs.
 
 Commands for the delivered tree:
 
@@ -100,6 +117,8 @@ forge test --match-path 'test/audit/CandidateV3MainnetFork.t.sol' \
   --fork-url https://ethereum-rpc.publicnode.com --fork-block-number 26177090 -vv
 python3 artwork/tools/verify_genesis_cid.py
 ```
+
+The public endpoint prunes historical state, so the pinned block may already answer `historical state is not available`; the fork tests key only on `block.chainid == 1` and do not require the pin. Drop `--fork-block-number` to run at the latest block (the reviewer's rerun passed there), or use an archive provider to reproduce the pinned observations exactly.
 
 For this worker run, `FOUNDRY_OUT=test/scratch/out` and `FOUNDRY_CACHE_PATH=test/scratch/cache` redirected generated artifacts to the permitted scratch space. They are not needed by the verifier and do not change the tested logic or run counts. Original-branch build scaffolding and deliberately failing `.t.sol` files were removed from test discovery after their individual runs. Full proof text remains in the findings and `.sol.txt` evidence, not as skipped or inverted passing assertions.
 
