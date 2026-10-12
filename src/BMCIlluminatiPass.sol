@@ -24,19 +24,19 @@ import {StandardArt} from "./StandardArt.sol";
 ///  genesis-77) and 423 Standard outcomes (fully on-chain SVG).
 ///
 ///  Trust model / privileged powers (see README "Operational responsibilities"):
-///   - Owner can set the Genesis images CID exactly once, before any mint. No mint is possible
-///     until it is set. After that it is immutable.
+///   - The verified Genesis images CID is a constant; metadata cannot be reconfigured.
 ///   - Owner can update the Chainlink VRF request configuration (subscription id, key hash, callback
 ///     gas, confirmations, payment mode). This can only affect *future* requests, never a stored or
-///     finalized outcome. The coordinator address is immutable. The owner cannot mint, reroll, assign
+///     finalized outcome. Retries use the current configuration. The coordinator is immutable.
+///     The owner cannot mint, overwrite delivered randomness, assign
 ///     artwork, change prices or metadata, withdraw anything, or upgrade the contract.
 ///   - The VRF subscription itself is administered on the Chainlink coordinator by its subscription
 ///     owner (adding this contract as a consumer, funding it). Anyone can fund a subscription.
 ///
-///  Unavailable randomness: a pending NFT stays pending until the *original* VRF request is
-///  fulfilled by the coordinator. There is no reroll, no re-request and no fallback randomness.
-///  Chainlink VRF v2.5 requests remain pending while the subscription is unfunded and are fulfilled
-///  once it is funded again, which anyone may do.
+///  Unavailable randomness: underfunded requests can expire. Anyone can request another word after
+///  the retry delay while no word has arrived. All issued ids stay valid and the first delivered
+///  word wins. No caller can discard a stored word. This recovery still trusts the coordinator's
+///  delivery order; see the security report for the additional trust and subscription cost risks.
 contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
     using Strings for uint256;
 
@@ -94,6 +94,11 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
     /// @dev Conservative gas budget per reveal (measured ~85k worst case) and reserve for the return path.
     uint256 public constant GAS_PER_REVEAL = 110_000;
     uint256 public constant CALLBACK_GAS_RESERVE = 30_000;
+    uint256 public constant RETRY_DELAY = 1 days;
+
+    string public constant genesisImagesCID = "bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u";
+    /// @notice Retained for integrations: the constant CID is locked from construction.
+    bool public constant genesisCIDLocked = true;
 
     IBMCToken public immutable BMC;
     IVRFCoordinatorV2Plus public immutable VRF_COORDINATOR;
@@ -111,9 +116,6 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
     /// @notice Number of Genesis outcomes drawn from the mystery pool so far.
     uint256 public mysteryGenesisRevealed;
 
-    string public genesisImagesCID;
-    bool public genesisCIDLocked;
-
     VRFConfig public vrfConfig;
 
     mapping(uint256 tokenId => Tier) private _tier;
@@ -121,6 +123,7 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
     mapping(uint256 tokenId => RevealStatus) private _revealStatus;
     mapping(uint256 tokenId => uint256 requestId) public requestIdOf;
     mapping(uint256 requestId => uint256 tokenId) public tokenIdOfRequest;
+    mapping(uint256 tokenId => uint256 timestamp) public lastRequestAt;
     mapping(uint256 tokenId => uint256) private _randomWord;
 
     /// @dev Virtual Fisher-Yates over 460 slots. slot(i) = i unless swapped; stores value + 1.
@@ -130,7 +133,6 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
     // Events
     // ------------------------------------------------------------------------------------------
 
-    event GenesisImagesCIDSet(string cid);
     event VRFConfigSet(
         uint256 subscriptionId,
         bytes32 keyHash,
@@ -141,17 +143,15 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
     event GenesisMinted(address indexed minter, uint256 indexed tokenId, uint16 artworkId, uint256 bmcBurned);
     event MysteryMinted(address indexed minter, uint256 indexed tokenId, uint256 indexed requestId, uint256 bmcBurned);
     event RandomnessStored(uint256 indexed tokenId, uint256 indexed requestId, uint256 randomWord);
+    event RandomnessRequested(uint256 indexed tokenId, uint256 indexed requestId);
     event Revealed(uint256 indexed tokenId, Tier tier, uint16 artworkId);
 
     // ------------------------------------------------------------------------------------------
     // Errors
     // ------------------------------------------------------------------------------------------
 
-    error GenesisCIDNotSet();
-    error GenesisCIDAlreadySet();
-    error EmptyCID();
-    error VRFNotConfigured();
     error InvalidVRFConfig();
+    error RetryUnavailable();
     error GenesisPhaseOver();
     error GenesisPhaseNotOver();
     error SoldOut();
@@ -166,32 +166,30 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
     // Constructor
     // ------------------------------------------------------------------------------------------
 
-    /// @param initialOwner Owner able to set the images CID (once) and the VRF request config.
+    /// @param initialOwner Owner able to update future VRF request configuration.
     /// @param bmcToken The BMC token (mainnet 0x38224239f2BDae357D47cb864BC533d7f72dF961).
     /// @param vrfCoordinator Chainlink VRF v2.5 coordinator (mainnet 0xD7f86b4b8Cae7D942340FF628F82735b7a20893a).
-    constructor(address initialOwner, address bmcToken, address vrfCoordinator)
-        ERC721("BMC Illuminati Pass", "BMCPASS")
-        Ownable(initialOwner)
-    {
+    constructor(
+        address initialOwner,
+        address bmcToken,
+        address vrfCoordinator,
+        uint256 subscriptionId,
+        bytes32 keyHash,
+        uint32 callbackGasLimit,
+        uint16 requestConfirmations,
+        bool nativePayment
+    ) ERC721("BMC Illuminati Pass", "BMCPASS") Ownable(initialOwner) {
         require(bmcToken != address(0) && vrfCoordinator != address(0), "zero address");
         BMC = IBMCToken(bmcToken);
         VRF_COORDINATOR = IVRFCoordinatorV2Plus(vrfCoordinator);
+        _setVRFConfig(subscriptionId, keyHash, callbackGasLimit, requestConfirmations, nativePayment);
     }
 
     // ------------------------------------------------------------------------------------------
     // Owner configuration (disclosed operational permissions)
     // ------------------------------------------------------------------------------------------
 
-    /// @notice Set the IPFS directory CID holding genesis-01.png .. genesis-77.png. Callable once.
-    function setGenesisImagesCID(string calldata cid) external onlyOwner {
-        if (genesisCIDLocked) revert GenesisCIDAlreadySet();
-        if (bytes(cid).length == 0) revert EmptyCID();
-        genesisImagesCID = cid;
-        genesisCIDLocked = true;
-        emit GenesisImagesCIDSet(cid);
-    }
-
-    /// @notice Set the Chainlink VRF v2.5 request parameters used for future mystery mints.
+    /// @notice Set the Chainlink VRF v2.5 request parameters used for future mints and retries.
     /// @dev Only affects requests made after this call. Cannot touch stored randomness or reveals.
     function setVRFConfig(
         uint256 subscriptionId,
@@ -200,6 +198,16 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
         uint16 requestConfirmations,
         bool nativePayment
     ) external onlyOwner {
+        _setVRFConfig(subscriptionId, keyHash, callbackGasLimit, requestConfirmations, nativePayment);
+    }
+
+    function _setVRFConfig(
+        uint256 subscriptionId,
+        bytes32 keyHash,
+        uint32 callbackGasLimit,
+        uint16 requestConfirmations,
+        bool nativePayment
+    ) private {
         if (
             subscriptionId == 0 || keyHash == bytes32(0) || callbackGasLimit < MIN_CALLBACK_GAS_LIMIT
                 || callbackGasLimit > MAX_CALLBACK_GAS_LIMIT || requestConfirmations < MIN_REQUEST_CONFIRMATIONS
@@ -222,7 +230,6 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
 
     /// @notice Phase 1: mint the next sequential Genesis NFT (ids 1-40) for 1,000,000 BMC.
     function mintGenesis() external nonReentrant returns (uint256 tokenId) {
-        if (!genesisCIDLocked) revert GenesisCIDNotSet();
         if (totalMinted >= GENESIS_PHASE_SUPPLY) revert GenesisPhaseOver();
 
         _burnExact(msg.sender, GENESIS_PRICE);
@@ -239,16 +246,33 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
 
     /// @notice Phase 2: burn 350,000 BMC, receive a pending-reveal NFT and open a VRF request.
     function mintMystery() external nonReentrant returns (uint256 tokenId, uint256 requestId) {
-        if (!genesisCIDLocked) revert GenesisCIDNotSet();
         if (totalMinted < GENESIS_PHASE_SUPPLY) revert GenesisPhaseNotOver();
         if (totalMinted >= MAX_SUPPLY) revert SoldOut();
-        VRFConfig memory cfg = vrfConfig;
-        if (!cfg.configured) revert VRFNotConfigured();
-
         _burnExact(msg.sender, MYSTERY_PRICE);
 
         tokenId = ++totalMinted;
         _revealStatus[tokenId] = RevealStatus.AwaitingRandomness;
+
+        requestId = _requestRandomness(tokenId);
+        emit MysteryMinted(msg.sender, tokenId, requestId, MYSTERY_PRICE);
+        _safeMint(msg.sender, tokenId);
+    }
+
+    /// @notice Retry a stalled token without burning BMC again. Anyone may pay the transaction gas.
+    /// @dev Old requests remain eligible; the first delivered word is permanent. A delay is not
+    ///      proof of oracle expiry. Subscription administrators must monitor the cost of retries.
+    function rerequestRandomness(uint256 tokenId) external nonReentrant returns (uint256 requestId) {
+        _requireMinted(tokenId);
+        if (
+            _revealStatus[tokenId] != RevealStatus.AwaitingRandomness
+                || block.timestamp < lastRequestAt[tokenId] + RETRY_DELAY
+        ) revert RetryUnavailable();
+        requestId = _requestRandomness(tokenId);
+    }
+
+    function _requestRandomness(uint256 tokenId) private returns (uint256 requestId) {
+        VRFConfig memory cfg = vrfConfig;
+        lastRequestAt[tokenId] = block.timestamp;
 
         requestId = VRF_COORDINATOR.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
@@ -260,12 +284,10 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
                 extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: cfg.nativePayment}))
             })
         );
-        require(tokenIdOfRequest[requestId] == 0, "duplicate request id");
+        require(requestId != 0 && tokenIdOfRequest[requestId] == 0, "invalid request id");
         requestIdOf[tokenId] = requestId;
         tokenIdOfRequest[requestId] = tokenId;
-        emit MysteryMinted(msg.sender, tokenId, requestId, MYSTERY_PRICE);
-
-        _safeMint(msg.sender, tokenId);
+        emit RandomnessRequested(tokenId, requestId);
     }
 
     /// @dev Burns exactly `amount` BMC from `payer` via burnFrom and verifies the burn happened.
@@ -454,7 +476,7 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
         return string.concat("genesis-", artwork < 10 ? "0" : "", uint256(artwork).toString(), ".png");
     }
 
-    function _genesisJson(uint256 tokenId, Tier tier, uint16 artwork) private view returns (string memory) {
+    function _genesisJson(uint256 tokenId, Tier tier, uint16 artwork) private pure returns (string memory) {
         bool legendary = tier == Tier.LegendaryGenesis;
         string memory file = _genesisFile(artwork);
         string memory head = string.concat(

@@ -24,17 +24,15 @@ contract ChainlinkMockIntegrationTest is Test {
         bmc = new MockBMC();
         // base fee 0.1 LINK, gas price 1 gwei, 4e15 wei per LINK
         coordinator = new VRFCoordinatorV2_5Mock(0.1 ether, 1e9, 4e15);
-        pass = new BMCIlluminatiPass(owner, address(bmc), address(coordinator));
 
         vm.startPrank(subOwner);
         subId = coordinator.createSubscription();
+        vm.stopPrank();
+        pass = new BMCIlluminatiPass(
+            owner, address(bmc), address(coordinator), subId, keccak256("lane"), 500_000, 3, false
+        );
+        vm.prank(subOwner);
         coordinator.addConsumer(subId, address(pass));
-        vm.stopPrank();
-
-        vm.startPrank(owner);
-        pass.setGenesisImagesCID("bafyintegration");
-        pass.setVRFConfig(subId, keccak256("lane"), 500_000, 3, false);
-        vm.stopPrank();
 
         for (uint256 i = 0; i < 40; i++) {
             address who = address(uint160(0x7000 + i));
@@ -54,17 +52,16 @@ contract ChainlinkMockIntegrationTest is Test {
         vm.stopPrank();
     }
 
-    /// @dev Like the real coordinator, the request is accepted while the subscription is unfunded;
-    ///      fulfilment fails until someone funds the subscription. The NFT stays pending, nothing is
-    ///      rerolled, and the original request is fulfilled once funds arrive.
-    function test_UnfundedSubscriptionKeepsTokenPendingUntilFunded() public {
+    /// @dev Exercises immediate funding only. This official mock does not model the oracle's
+    ///      24-hour request expiry. Expiry and recovery are covered in VRFRecovery.t.sol.
+    function test_ImmediateFundingAllowsMockFulfillment() public {
         (uint256 id, uint256 req) = _mystery();
         assertEq(uint8(pass.revealStatusOf(id)), uint8(BMCIlluminatiPass.RevealStatus.AwaitingRandomness));
         vm.expectRevert(SubscriptionAPI.InsufficientBalance.selector);
         coordinator.fulfillRandomWords(req, address(pass));
         assertEq(uint8(pass.tierOf(id)), uint8(BMCIlluminatiPass.Tier.Pending));
         assertEq(pass.finalizeReveals(5), 0);
-        // Anyone can fund; the pending request then completes.
+        // Fund immediately, before any service expiry; then deliver the original request.
         coordinator.fundSubscription(subId, 100 ether);
         coordinator.fulfillRandomWords(req, address(pass));
         assertEq(uint8(pass.revealStatusOf(id)), uint8(BMCIlluminatiPass.RevealStatus.Revealed));

@@ -5,8 +5,11 @@
 423 Standard pieces (fully on-chain SVG). Mystery outcomes are drawn without replacement using
 Chainlink VRF v2.5.
 
-**Status: not deployed.** Nothing in this repository broadcasts a transaction, pays a service, or
-requests a token approval. Mainnet deployment needs the owner's explicit authorization after review.
+**Status: not deployed; Candidate V3 is not Mainnet-ready.** See the [security report](docs/SECURITY-REVIEW.md)
+and [adaptation notes](ADAPTATION.md). This checkout is the production per-token design from `17aa386`.
+The requested `security/vrf-recovery` Candidate V3 at `bf2a63c` was audited separately; its unchanged
+code is preserved under `test/audit/fixtures/` solely for reproducible audit tests, not deployment.
+All deployment scripts in this checkout simulate locally and do not broadcast or sign.
 
 ## Layout
 
@@ -15,8 +18,8 @@ requests a token approval. Mainnet deployment needs the owner's explicit authori
 | `src/BMCIlluminatiPass.sol` | The collection contract (ERC721 + Ownable + ReentrancyGuard, VRF v2.5 consumer). |
 | `src/StandardArt.sol` | Internal library rendering the 423 Standard SVGs and their traits. |
 | `src/interfaces/IBMCToken.sol` | Minimal BMC interface (`burnFrom`, `decimals`, ...). |
-| `script/Deploy.s.sol` | Deployment script; mainnet addresses are constants, owner is the only input. |
-| `test/` | Foundry tests (43), including a run against Chainlink's official `VRFCoordinatorV2_5Mock`. |
+| `script/Deploy.s.sol` | Local deployment simulation; explicit owner and VRF configuration. |
+| `test/` | Unit, recovery, factory, V3 audit and optional Mainnet fork tests; see recorded results. |
 | `artwork/genesis/` | The 77 Genesis PNGs (1024x1024), `genesis-01.png` .. `genesis-77.png`. |
 | `artwork/tools/generate_genesis.py` | Deterministic generator for the Genesis PNGs (Pillow). |
 | `website/` | Static mint site "bmc-pass" (no build step, no dependencies). |
@@ -24,20 +27,21 @@ requests a token approval. Mainnet deployment needs the owner's explicit authori
 | `docs/TEST-RESULTS.md` | Recorded `forge test` output. |
 | `lib/` | Vendored dependencies as plain files: OpenZeppelin 5.1.0, forge-std 1.9.6, Chainlink contracts 1.4.0 (VRF v2.5 subset). |
 
-## Pre-deployment checks performed (IMD free check, 2026-10-12)
+## Dependency checks (2026-10-12)
 
 | Check | Result |
 | --- | --- |
 | BMC `decimals()` | 18 (read on mainnet). The contract re-checks on every mint and reverts otherwise. |
-| BMC `burnFrom` | Selector `0x79cc6790` present in the deployed, non-proxy bytecode (EIP-1967 slot empty); OpenZeppelin `ERC20Burnable` semantics assumed: spend allowance, then burn. The contract verifies after each call that `totalSupply` and the payer balance both dropped by exactly the price. |
+| BMC `burnFrom` | Mainnet fork mints confirmed exact reductions in payer balance and total supply for both prices. The pass enforces these same deltas on every mint. |
 | BMC owner / pause | No `owner()` or `paused()` function responds. |
 | Chainlink VRF v2.5 coordinator | `0xD7f86b4b8Cae7D942340FF628F82735b7a20893a` has code and reports `LINK() == 0x514910771AF9Ca656af840dff83E8264EcF986CA`. |
-| Genesis images CID | **Blocker until set.** Must be produced by uploading `artwork/genesis/` to IPFS. Set once on-chain via `setGenesisImagesCID`; minting is impossible before. |
-| VRF subscription | **Blocker until created.** Needs a funded VRF v2.5 subscription with the pass added as consumer; set via `setVRFConfig`. |
-| Image generation | Available: Pillow generated the 77 originals deterministically. |
+| Genesis images CID | Fixed constant `bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u`. All 77 files reproduce it with `python3 artwork/tools/verify_genesis_cid.py`. |
+| VRF subscription | Constructor-configured. The subscription in the V3 dry-run script has 0 consumers and 0.02 ETH at block 26,176,905. Register the predicted pass address and provide adequate funding before opening sales. |
+| Artwork integrity | The 77 committed images reproduce the fixed directory CID; regeneration or replacement would require a different CID. |
 
-The `burnFrom` behaviour could not be exercised against the live token from this environment (no
-funded account); the on-chain mismatch guard makes a wrong assumption fail closed rather than mint.
+Mainnet fork tests exercised both prices against live BMC bytecode using local-only balance adjustments.
+They also exercised VRF requests after simulated consumer registration and funding; no real transactions
+or oracle proofs were submitted.
 
 ## Mint mechanics
 
@@ -60,53 +64,59 @@ Public views: `ownerOf`, `tierOf`, `artworkIdOf`, `revealStatusOf`, `totalMinted
 
 ## Unavailable randomness
 
-A pending token stays pending until its original request is fulfilled. There is no reroll,
-re-request or fallback. Chainlink VRF v2.5 keeps a request pending while the subscription is
-unfunded and fulfils it after funding, which anyone can do. The owner changing `setVRFConfig`
-cannot touch open requests. If the coordinator were permanently decommissioned, affected tokens
-would remain pending forever; this is a stated trust dependency on Chainlink, not a hidden one.
+[Chainlink's subscription documentation](https://docs.chain.link/vrf/v2-5/overview/subscription)
+says underfunded requests can expire after 24 hours. Funding later does not revive an expired request.
+For an NFT still awaiting randomness, anyone may call `rerequestRandomness(tokenId)` once a full day
+has elapsed since its most recent request. This burns no additional BMC and uses the current VRF
+configuration. All issued request IDs remain valid, and the first delivered word is permanent.
+Tokens with stored or finalized randomness cannot be retried. An expired earlier token can still
+block later finalizations until a replacement word arrives.
+
+This recovery requires a functioning coordinator and funded, authorized subscription. The timeout
+cannot prove expiry; concurrent requests increase reliance on oracle delivery order and can incur
+additional subscription costs. These tradeoffs are described in the security report. There is no
+fallback randomness, refund mint, or coordinator replacement.
 
 ## Privileged powers and operational responsibilities
 
 | Power | Who | Effect | Limits |
 | --- | --- | --- | --- |
-| `setGenesisImagesCID(cid)` | owner, once | Sets the IPFS directory for Genesis images. | Cannot be changed afterwards; no mint is possible before it is set. |
-| `setVRFConfig(subId, keyHash, callbackGas, confirmations, nativePayment)` | owner, any time | Parameters for **future** VRF requests. | Bounded (gas 150k-2.5M, confirmations 3-200). Cannot affect stored randomness or revealed tokens. A bad config only blocks new mystery mints until corrected. |
+| `setVRFConfig(subId, keyHash, callbackGas, confirmations, nativePayment)` | owner, any time | Parameters for **future** VRF requests. | Bounded (gas 150k-2.5M, confirmations 3-200). Cannot affect stored randomness or revealed tokens. A bad config blocks new mystery requests and retries until corrected; old request IDs remain valid. |
 | VRF subscription admin | subscription owner on the Chainlink coordinator | Add/remove the pass as consumer, fund with LINK or ETH. | Removing the consumer or defunding blocks new requests / delays fulfilment. Anyone can fund. |
 | `transferOwnership` / `renounceOwnership` | owner | Standard OpenZeppelin Ownable. | Renouncing freezes the VRF config forever. |
 
 There is no owner mint, airdrop, artwork assignment, metadata edit, price change, pause,
 withdrawal or upgrade path. The contract is not a proxy. The coordinator address is immutable.
 
-## Deployment (do not run without explicit authorization)
+## Constructor and local simulation
 
-Constructor: `(address initialOwner, address bmcToken, address vrfCoordinator)`.
-Mainnet values: BMC `0x38224239f2BDae357D47cb864BC533d7f72dF961`,
-coordinator `0xD7f86b4b8Cae7D942340FF628F82735b7a20893a`.
+The factory calls one nonpayable constructor with eight static arguments:
 
-```bash
-forge build
-forge test
-OWNER=0xYourOwner forge script script/Deploy.s.sol:DeployBMCIlluminatiPass \
-  --rpc-url $ETH_RPC --account <keystore> --broadcast --verify
+```solidity
+(address initialOwner, address bmcToken, address vrfCoordinator,
+ uint256 subscriptionId, bytes32 keyHash, uint32 callbackGasLimit,
+ uint16 requestConfirmations, bool nativePayment)
 ```
 
-Verify source on Etherscan (`forge verify-contract`) before announcing.
+Use `$owner` for `initialOwner`; the launch specifies `0x83027AD9d0D5374335086c539dADD1db983441B0`.
+Mainnet BMC is `0x38224239f2BDae357D47cb864BC533d7f72dF961`; coordinator is
+`0xD7f86b4b8Cae7D942340FF628F82735b7a20893a`. The constructor makes no dependency calls and
+requires no subsequent application initialization. Subscription operations happen separately on
+Chainlink's coordinator. No launch token or pool is added.
 
-### After launch (owner, in this order)
+`script/Deploy.s.sol` reads `OWNER`, `SUBSCRIPTION_ID` and `KEY_HASH` for local simulation;
+its default request parameters are 500,000 callback gas, 3 confirmations and native payment.
+The production per-token callback attempts a reveal batch, so V3's suggested 150,000-gas seed-only
+configuration must not be substituted on the assumption that these callbacks do the same work.
 
-1. **Upload artwork.** Pin `artwork/genesis/` (77 files) as one IPFS directory. Record its CID.
-   Check `ipfs://<CID>/genesis-01.png` resolves on at least two gateways.
-2. **Set the CID.** `setGenesisImagesCID("<CID>")` once. Minting opens only after this.
-3. **Create a VRF v2.5 subscription** at vrf.chain.link (mainnet), fund it (LINK or ETH), add the
-   pass address as a consumer.
-4. **Set VRF config.** `setVRFConfig(subscriptionId, keyHash, 500000, 3, nativePayment)`.
-   Key hash is the gas lane you choose from Chainlink's published mainnet lanes (e.g. the 200/500/1000 gwei lanes);
-   500k callback gas lets each callback finalize up to 4 reveals. `nativePayment=true` if funded with ETH.
-5. **Website.** Put the pass address in `website/config.js` (`PASS_ADDRESS`) and host `website/`
-   with `artwork/` beside it (or point the gallery at IPFS).
-6. Keep the subscription funded: 460 requests at mainnet VRF prices. Monitor
-   `pendingReveals()`; anyone can call `finalizeReveals(n)` if a callback left stored words.
+Before actual launch, the operator must verify the nominated subscription, gas lane and payment mode;
+register the predicted contract as a consumer; fund for up to 460 initial requests plus possible retries;
+maintain IPFS pins; and obtain the final independent review. The pass exposes an owner-only
+`setVRFConfig` for later subscription/lane repairs, but initial minting does not depend on that call.
+Keep the immutable coordinator dependency and ownership-renunciation risk in mind.
+
+The static site needs the confirmed pass address in `website/config.js`. Do not put a simulation address
+there. Monitor `pendingReveals()`; anyone can finalize stored words or retry eligible stalled tokens.
 
 ## Website (bmc-pass)
 
@@ -118,8 +128,8 @@ burning and VRF delays. Two-step approve-then-mint with exact amounts (no infini
 
 ## Assumptions
 
-- BMC `burnFrom` follows OpenZeppelin `ERC20Burnable` (verified by selector and non-proxy code;
-  guarded on-chain by exact supply/balance deltas).
+- BMC `burnFrom` follows the behavior exercised on the pinned fork; each mint independently
+  checks exact supply/balance deltas.
 - 18 decimals, prices expressed as `1_000_000e18` and `350_000e18`.
 - Chainlink mainnet VRF v2.5 coordinator and key hashes per Chainlink documentation; the owner
   chooses the gas lane.
@@ -129,6 +139,10 @@ burning and VRF delays. Two-step approve-then-mint with exact amounts (no infini
 ## Testing
 
 ```bash
-forge build && forge test && forge fmt --check
-python3 artwork/tools/generate_genesis.py artwork/genesis   # regenerates identical PNGs
+forge build
+forge test
+python3 artwork/tools/verify_genesis_cid.py
+# Optional read-only Mainnet fork checks (network required):
+forge test --match-path 'test/*MainnetFork.t.sol' \
+  --fork-url https://ethereum-rpc.publicnode.com --fork-block-number 26176905
 ```

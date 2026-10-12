@@ -4,8 +4,8 @@ pragma solidity 0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {BMCIlluminatiPass} from "../src/BMCIlluminatiPass.sol";
 
-/// @notice Deployment script. Mainnet values are constants; `run()` reads only the owner from the
-///         environment and hands a config to `deploy`, which tests call directly.
+/// @notice Local deployment simulation. No broadcasting or signing.
+/// @dev The launch factory supplies the same eight static constructor arguments.
 contract DeployBMCIlluminatiPass is Script {
     /// @dev BMC Illuminati token, Ethereum mainnet (verified 2026-10-12: 18 decimals, burnFrom present).
     address public constant MAINNET_BMC = 0x38224239f2BDae357D47cb864BC533d7f72dF961;
@@ -17,22 +17,43 @@ contract DeployBMCIlluminatiPass is Script {
         address owner;
         address bmc;
         address vrfCoordinator;
+        uint256 subscriptionId;
+        bytes32 keyHash;
+        uint32 callbackGasLimit;
+        uint16 requestConfirmations;
+        bool nativePayment;
     }
 
-    function mainnetConfig(address owner) public pure returns (Config memory) {
-        return Config({owner: owner, bmc: MAINNET_BMC, vrfCoordinator: MAINNET_VRF_COORDINATOR});
+    function mainnetConfig(address owner, uint256 subscriptionId, bytes32 keyHash) public pure returns (Config memory) {
+        return Config({
+            owner: owner,
+            bmc: MAINNET_BMC,
+            vrfCoordinator: MAINNET_VRF_COORDINATOR,
+            subscriptionId: subscriptionId,
+            keyHash: keyHash,
+            callbackGasLimit: 500_000,
+            requestConfirmations: 3,
+            nativePayment: true
+        });
     }
 
     function deploy(Config memory cfg) public returns (BMCIlluminatiPass pass) {
         require(cfg.owner != address(0), "owner required");
-        pass = new BMCIlluminatiPass(cfg.owner, cfg.bmc, cfg.vrfCoordinator);
+        pass = new BMCIlluminatiPass(
+            cfg.owner,
+            cfg.bmc,
+            cfg.vrfCoordinator,
+            cfg.subscriptionId,
+            cfg.keyHash,
+            cfg.callbackGasLimit,
+            cfg.requestConfirmations,
+            cfg.nativePayment
+        );
     }
 
-    /// @dev OWNER must be set in the environment. Never broadcast without explicit authorization.
+    /// @dev Requires explicit configuration; never reads a key or starts broadcasting.
     function run() external returns (BMCIlluminatiPass pass) {
         address owner = vm.envAddress("OWNER");
-        vm.startBroadcast();
-        pass = deploy(mainnetConfig(owner));
-        vm.stopBroadcast();
+        pass = deploy(mainnetConfig(owner, vm.envUint("SUBSCRIPTION_ID"), vm.envBytes32("KEY_HASH")));
     }
 }

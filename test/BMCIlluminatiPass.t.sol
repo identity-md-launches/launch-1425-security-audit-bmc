@@ -59,11 +59,7 @@ contract BMCIlluminatiPassTest is Test {
     function setUp() public {
         bmc = new MockBMC();
         vrf = new MockVRFCoordinator();
-        pass = new BMCIlluminatiPass(owner, address(bmc), address(vrf));
-        vm.startPrank(owner);
-        pass.setGenesisImagesCID("bafybeigdyrztestcidgenesisdirectory");
-        pass.setVRFConfig(42, KEY_HASH, 300_000, 3, false);
-        vm.stopPrank();
+        pass = new BMCIlluminatiPass(owner, address(bmc), address(vrf), 42, KEY_HASH, 300_000, 3, false);
     }
 
     // ------------------------------------------------------------------ helpers
@@ -148,7 +144,7 @@ contract BMCIlluminatiPassTest is Test {
 
     function test_DeployScriptConfig() public {
         DeployBMCIlluminatiPass d = new DeployBMCIlluminatiPass();
-        DeployBMCIlluminatiPass.Config memory cfg = d.mainnetConfig(owner);
+        DeployBMCIlluminatiPass.Config memory cfg = d.mainnetConfig(owner, 42, KEY_HASH);
         assertEq(cfg.bmc, 0x38224239f2BDae357D47cb864BC533d7f72dF961);
         assertEq(cfg.vrfCoordinator, 0xD7f86b4b8Cae7D942340FF628F82735b7a20893a);
         BMCIlluminatiPass p = d.deploy(cfg);
@@ -157,17 +153,20 @@ contract BMCIlluminatiPassTest is Test {
         assertEq(address(p.VRF_COORDINATOR()), cfg.vrfCoordinator);
         assertEq(p.name(), "BMC Illuminati Pass");
         assertEq(p.symbol(), "BMCPASS");
-        assertFalse(p.genesisCIDLocked());
-        // Nothing can be minted on a fresh deployment until the CID is set.
-        vm.expectRevert(BMCIlluminatiPass.GenesisCIDNotSet.selector);
-        p.mintGenesis();
-        vm.expectRevert(BMCIlluminatiPass.GenesisCIDNotSet.selector);
-        p.mintMystery();
+        assertTrue(p.genesisCIDLocked());
+        (uint256 sub, bytes32 key, uint32 gasLimit, uint16 confirmations, bool nativePayment, bool configured) =
+            p.vrfConfig();
+        assertEq(sub, 42);
+        assertEq(key, KEY_HASH);
+        assertEq(gasLimit, 500_000);
+        assertEq(confirmations, 3);
+        assertTrue(nativePayment);
+        assertTrue(configured);
     }
 
     function test_DeployScriptRequiresOwner() public {
         DeployBMCIlluminatiPass d = new DeployBMCIlluminatiPass();
-        DeployBMCIlluminatiPass.Config memory cfg = d.mainnetConfig(address(0));
+        DeployBMCIlluminatiPass.Config memory cfg = d.mainnetConfig(address(0), 42, KEY_HASH);
         vm.expectRevert(bytes("owner required"));
         d.deploy(cfg);
     }
@@ -185,20 +184,12 @@ contract BMCIlluminatiPassTest is Test {
         assertEq(40 * GENESIS_PRICE + 460 * MYSTERY_PRICE, pass.MAX_TOTAL_BURN());
     }
 
-    function test_CIDSetOnce() public {
-        BMCIlluminatiPass p = new BMCIlluminatiPass(owner, address(bmc), address(vrf));
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice));
-        p.setGenesisImagesCID("x");
+    function test_CIDConstantAndHasNoSetter() public {
+        assertTrue(pass.genesisCIDLocked());
+        assertEq(pass.genesisImagesCID(), "bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u");
         vm.prank(owner);
-        vm.expectRevert(BMCIlluminatiPass.EmptyCID.selector);
-        p.setGenesisImagesCID("");
-        vm.prank(owner);
-        p.setGenesisImagesCID("bafyREAL");
-        assertEq(p.genesisImagesCID(), "bafyREAL");
-        vm.prank(owner);
-        vm.expectRevert(BMCIlluminatiPass.GenesisCIDAlreadySet.selector);
-        p.setGenesisImagesCID("bafyOTHER");
+        (bool ok,) = address(pass).call(abi.encodeWithSignature("setGenesisImagesCID(string)", "replacement"));
+        assertFalse(ok);
     }
 
     function test_VRFConfigValidation() public {
@@ -229,25 +220,12 @@ contract BMCIlluminatiPassTest is Test {
         pass.setVRFConfig(7, KEY_HASH, 250_000, 5, true);
     }
 
-    function test_MysteryRevertsWhenVRFUnconfigured() public {
-        BMCIlluminatiPass p = new BMCIlluminatiPass(owner, address(bmc), address(vrf));
-        vm.prank(owner);
-        p.setGenesisImagesCID("cid");
-        for (uint256 i = 0; i < 40; i++) {
-            address who = address(uint160(0x2000 + i));
-            _fund(who, GENESIS_PRICE);
-            vm.startPrank(who);
-            bmc.approve(address(p), GENESIS_PRICE);
-            p.mintGenesis();
-            vm.stopPrank();
-        }
-        _fund(alice, MYSTERY_PRICE);
-        vm.startPrank(alice);
-        bmc.approve(address(p), MYSTERY_PRICE);
-        vm.expectRevert(BMCIlluminatiPass.VRFNotConfigured.selector);
-        p.mintMystery();
-        vm.stopPrank();
-        assertEq(bmc.balanceOf(alice), MYSTERY_PRICE, "no burn when request impossible");
+    function test_MintingIsConfiguredByConstructor() public {
+        _finishPhase1();
+        (uint256 id, uint256 req) = _mintMysteryAs(alice);
+        assertEq(id, 41);
+        assertTrue(vrf.fulfill(req, 123));
+        assertEq(uint256(pass.revealStatusOf(id)), uint256(BMCIlluminatiPass.RevealStatus.Revealed));
     }
 
     // ------------------------------------------------------------------ phase 1
@@ -260,7 +238,7 @@ contract BMCIlluminatiPassTest is Test {
         assertEq(pass.artworkIdOf(1), 1);
         string memory json = _decodeTokenURI(1);
         assertTrue(_contains(json, '"Legendary Genesis"'));
-        assertTrue(_contains(json, "ipfs://bafybeigdyrztestcidgenesisdirectory/genesis-01.png"));
+        assertTrue(_contains(json, "ipfs://bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u/genesis-01.png"));
         assertTrue(_contains(json, "Legendary Golden Crown"));
     }
 
@@ -364,9 +342,7 @@ contract BMCIlluminatiPassTest is Test {
 
     function test_RevertWhenTokenDoesNotActuallyBurn() public {
         FakeBurnBMC fake = new FakeBurnBMC();
-        BMCIlluminatiPass p = new BMCIlluminatiPass(owner, address(fake), address(vrf));
-        vm.prank(owner);
-        p.setGenesisImagesCID("cid");
+        BMCIlluminatiPass p = new BMCIlluminatiPass(owner, address(fake), address(vrf), 42, KEY_HASH, 300_000, 3, false);
         fake.mint(alice, GENESIS_PRICE);
         vm.startPrank(alice);
         fake.approve(address(p), GENESIS_PRICE);
@@ -377,9 +353,7 @@ contract BMCIlluminatiPassTest is Test {
 
     function test_RevertWhenTokenDecimalsUnexpected() public {
         SixDecimalBMC six = new SixDecimalBMC();
-        BMCIlluminatiPass p = new BMCIlluminatiPass(owner, address(six), address(vrf));
-        vm.prank(owner);
-        p.setGenesisImagesCID("cid");
+        BMCIlluminatiPass p = new BMCIlluminatiPass(owner, address(six), address(vrf), 42, KEY_HASH, 300_000, 3, false);
         six.mint(alice, GENESIS_PRICE);
         vm.startPrank(alice);
         six.approve(address(p), GENESIS_PRICE);
@@ -602,7 +576,7 @@ contract BMCIlluminatiPassTest is Test {
         assertEq(h1, h2);
     }
 
-    function test_UnavailableRandomnessStaysPendingNoFallback() public {
+    function test_PendingTokenRemainsTransferableAfterConfigChange() public {
         _finishPhase1();
         (uint256 id,) = _mintMysteryAs(alice);
         vm.warp(block.timestamp + 365 days);
@@ -818,10 +792,10 @@ contract BMCIlluminatiPassTest is Test {
     }
 
     function test_NoOwnerMintOrWithdrawSurface() public {
-        // The owner has exactly two configuration powers and no mint/withdraw/price path.
+        // The owner's only application power is future VRF configuration.
         vm.startPrank(owner);
-        vm.expectRevert(BMCIlluminatiPass.GenesisCIDAlreadySet.selector);
-        pass.setGenesisImagesCID("again");
+        (bool ok,) = address(pass).call(abi.encodeWithSignature("setGenesisImagesCID(string)", "again"));
+        assertFalse(ok);
         vm.expectRevert();
         pass.mintGenesis(); // no allowance / balance: owner pays like anyone else
         vm.stopPrank();

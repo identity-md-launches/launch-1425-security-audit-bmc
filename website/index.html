@@ -72,8 +72,8 @@
       <li><strong>Gas.</strong> Every approve and mint is an Ethereum transaction. You pay ETH gas on top of the BMC price. The BMC price is fixed in the contract; gas is set by the network and your wallet.</li>
       <li><strong>Burning.</strong> The contract calls BMC <code>burnFrom</code> on your exact approval. Burned BMC is destroyed, not sent anywhere. Nothing is burned when you transfer a pass later.</li>
       <li><strong>VRF reveal delay.</strong> A mystery mint opens a Chainlink VRF v2.5 request. Chainlink answers after the configured block confirmations (usually a few minutes). Until then your NFT shows neutral pending metadata. Reveals are finalized in mint order, so a reveal can also wait for the mints just before it.</li>
-      <li><strong>No rerolls.</strong> Nobody, including the team, can reroll, pick artwork, change prices or metadata, mint for free, or withdraw anything. The only team powers are setting the Genesis image CID once and updating the VRF request settings for future requests.</li>
-      <li><strong>If randomness is late.</strong> A request stays pending until Chainlink fulfils it. If the VRF subscription runs dry, anyone can fund it and pending requests complete. There is no fallback randomness.</li>
+      <li><strong>Permanent reveals.</strong> Delivered randomness cannot be overwritten. The team cannot pick artwork, change prices or metadata, mint for free, or withdraw anything. Genesis images are fixed from deployment. The team can update VRF settings for future mints and retries.</li>
+      <li><strong>If randomness is late.</strong> Underfunded requests can expire. Anyone can fund the subscription and request a retry after a full day without randomness; retries do not burn more BMC. The first delivered word is permanent. There is no fallback randomness.</li>
       <li><strong>Odds.</strong> Shown from the remaining on-chain inventory. While reveals are outstanding the odds are provisional, because pending tokens already own outcomes that have not been drawn yet.</li>
     </ul>
   </section>

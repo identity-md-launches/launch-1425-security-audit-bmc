@@ -1,0 +1,22 @@
+Compiling 58 files with Solc 0.8.26
+Solc 0.8.26 finished in 7.04s
+Compiler run successful!
+
+Ran 2 tests for test/BMCMainnetFork.t.sol:BMCMainnetForkTest
+[PASS] test_RealBMCGenesisMint() (gas: 706878)
+[PASS] test_RealBMCMysteryMintAndRetryWithoutAnotherBurn() (gas: 6598497)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 529.41ms (385.10ms CPU time)
+
+Ran 4 tests for test/audit/CandidateV3MainnetFork.t.sol:CandidateV3MainnetForkTest
+[PASS] test_BurnsPersistWhenUnregisteredConsumerCannotRequestSeed() (gas: 6498302)
+[PASS] test_CancelledSubscriptionCannotBeReplacedInV3() (gas: 6574134)
+[PASS] test_LiveCoordinatorAcceptsV25RequestAfterLocalRegistrationAndFunding() (gas: 6690620)
+[PASS] test_LiveCoordinatorLaneAndSubscription() (gas: 47847)
+Logs:
+  LINK balance: 0
+  Native balance: 20000000000000000
+  Consumers: 0
+
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 602.88ms (387.11ms CPU time)
+
+Ran 2 test suites in 656.41ms (1.13s CPU time): 6 tests passed, 0 failed, 0 skipped (6 total tests)
