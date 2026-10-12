@@ -1,0 +1,155 @@
+Compiling 76 files with Solc 0.8.26
+Solc 0.8.26 finished in 22.76s
+Compiler run successful with warnings:
+Warning (2018): Function state mutability can be restricted to view
+  --> test/BMCPassVRFPrototype.t.sol:49:5:
+   |
+49 |     function testSameSeedProducesSameDistribution() public {
+   |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to view
+  --> test/BMCPassVRFPrototype.t.sol:56:5:
+   |
+56 |     function testDifferentSeedsProduceDifferentDistributions() public {
+   |     ^ (Relevant source part starts here and spans across multiple lines).
+
+
+Ran 4 tests for test/BMCPassVRFPrototype.t.sol:BMCPassVRFPrototypeTest
+[PASS] testDifferentSeedsProduceDifferentDistributions() (gas: 1109240)
+[PASS] testDistributionHasNoDuplicates() (gas: 4831168)
+[PASS] testInvalidOutcomeReverts() (gas: 8495)
+[PASS] testSameSeedProducesSameDistribution() (gas: 1109275)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 54.96ms (54.19ms CPU time)
+
+Ran 5 tests for test/BMCPostSaleSeedController.t.sol:BMCPostSaleSeedControllerTest
+[PASS] testAnyoneCanCloseAfterDeadline() (gas: 62595)
+[PASS] testCannotRequestBeforeClose() (gas: 31536)
+[PASS] testCannotRetryEarlyAndFirstDeliveredWins() (gas: 388558)
+[PASS] testUnauthorizedFulfillmentRejected() (gas: 179575)
+[PASS] testZeroSeedAccepted() (gas: 211792)
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 2.03ms (1.25ms CPU time)
+
+Ran 4 tests for test/ChainlinkMockIntegration.t.sol:ChainlinkMockIntegrationTest
+[PASS] test_NotAConsumerReverts() (gas: 369271)
+[PASS] test_RequestAndFulfilThroughChainlinkMock() (gas: 759243)
+[PASS] test_SeveralRequestsOutOfOrderThroughChainlinkMock() (gas: 1890718)
+[PASS] test_UnfundedSubscriptionKeepsTokenPendingUntilFunded() (gas: 949212)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 23.60ms (4.96ms CPU time)
+
+Ran 1 test for test/VRFRecovery.t.sol:VRFRecoveryTest
+[PASS] testMissingEarlierRequestBlocksLaterReveal() (gas: 1066310)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 19.76ms (1.84ms CPU time)
+
+Ran 1 test for test/VRFRecoveryAdditional.t.sol:VRFRecoveryAdditionalTest
+[PASS] testLaterRandomnessStoredUntilEarlierRequestArrives() (gas: 1343691)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 22.12ms (1.83ms CPU time)
+
+Ran 2 tests for test/VRFSafetyProperties.t.sol:VRFSafetyPropertiesTest
+[PASS] testDelayedPredecessorDoesNotBurnAgainOrChangeSupply() (gas: 1353850)
+[PASS] testOnlyCoordinatorMayDeliverRandomness() (gas: 452372)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 18.32ms (1.97ms CPU time)
+
+Ran 6 tests for test/BMCIlluminatiPassCandidateV2.t.sol:BMCIlluminatiPassCandidateV2Test
+[PASS] test_EmptyGenesisCIDReverts() (gas: 14201)
+[PASS] test_FirstDeliveredSeedWinsAfterRetry() (gas: 825058)
+[PASS] test_FullInventoryNoDuplicates() (gas: 98580697)
+[PASS] test_GenesisCIDSetAndLockedAtDeployment() (gas: 26622)
+[PASS] test_OnlyCoordinatorCanDeliverSeed() (gas: 380069)
+[PASS] test_UnknownGasLaneCannotRequestSeed() (gas: 79323)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 166.26ms (158.88ms CPU time)
+
+Ran 9 tests for test/BMCIlluminatiPassCandidateV3.t.sol:BMCIlluminatiPassCandidateV3Test
+[PASS] test_BurnAndMintDoNotRequestRandomness() (gas: 164171)
+[PASS] test_EmptyGenesisCIDReverts() (gas: 14223)
+[PASS] test_FullInventoryNoDuplicates() (gas: 98526390)
+[PASS] test_GenesisCIDSetAndLockedAtDeployment() (gas: 26633)
+[PASS] test_OnlyCoordinatorCanDeliverSeed() (gas: 335458)
+[PASS] test_OnlyOneSeedRequestEvenAfterSevenDays() (gas: 563567)
+[PASS] test_SaleViewsCloseAtDeadline() (gas: 53931)
+[PASS] test_UnknownGasLaneCannotRequestSeed() (gas: 79352)
+[PASS] test_UnrecognizedRequestRejected() (gas: 335159)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 176.24ms (168.04ms CPU time)
+
+Ran 4 tests for test/BMCPassVRFChainlinkIntegration.t.sol:BMCPassVRFChainlinkIntegrationTest
+[PASS] testCannotRequestSecondSeed() (gas: 194532)
+[PASS] testOnlyCoordinatorMaySupplySeed() (gas: 199418)
+[PASS] testUnfulfilledRequestDoesNotCreateSeed() (gas: 186502)
+[PASS] testVRFSeedProducesExactUniqueInventory() (gas: 5781645)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 26.18ms (24.80ms CPU time)
+
+Ran 5 tests for test/BMCIlluminatiPassCandidate.t.sol:BMCIlluminatiPassCandidateTest
+[PASS] test_BurnAndMintDoNotRequestRandomness() (gas: 164281)
+[PASS] test_FirstDeliveredSeedWinsAfterRetry() (gas: 825150)
+[PASS] test_FullInventoryNoDuplicates() (gas: 98586632)
+[PASS] test_OnlyCoordinatorCanDeliverSeed() (gas: 380129)
+[PASS] test_UnknownGasLaneCannotRequestSeed() (gas: 720213)
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 166.32ms (158.49ms CPU time)
+
+Ran 39 tests for test/BMCIlluminatiPass.t.sol:BMCIlluminatiPassTest
+[PASS] testFuzz_SingleRevealAlwaysInInventory(uint256) (runs: 64, μ: 11045945, ~: 11043529)
+[PASS] test_CIDSetOnce() (gas: 176633)
+[PASS] test_CallbackBatchIsGasAware() (gas: 12140393)
+[PASS] test_Constants() (gas: 82402)
+[PASS] test_DeployScriptConfig() (gas: 10629359)
+[PASS] test_DeployScriptRequiresOwner() (gas: 5683150)
+[PASS] test_ExcessAllowanceOnlyBurnsPrice() (gas: 343854)
+[PASS] test_FinalizationOrderCannotBeChosen() (gas: 12020044)
+[PASS] test_FirstMinterGetsLegendaryGenesis1() (gas: 2027697)
+[PASS] test_FulfillRevealsAndLocksMetadata() (gas: 17335801)
+[PASS] test_Full500MintSimulation() (gas: 269030345)
+[PASS] test_FullMintOutWithInOrderFulfillment() (gas: 235375333)
+[PASS] test_GenesisRevertsAfterPhase1() (gas: 10618021)
+[PASS] test_Mints2To40AreSequentialGenesis() (gas: 14434063)
+[PASS] test_MysteryBurnRevertsIfVRFRequestFails() (gas: 10752056)
+[PASS] test_MysteryRevertsDuringPhase1() (gas: 460015)
+[PASS] test_MysteryRevertsWhenVRFUnconfigured() (gas: 10677451)
+[PASS] test_NoOwnerMintOrWithdrawSurface() (gas: 87601)
+[PASS] test_OnlyCoordinatorCanFulfill() (gas: 10961327)
+[PASS] test_OutOfOrderFulfillmentFinalizesInMintOrder() (gas: 12222761)
+[PASS] test_PendingMetadataIsNeutral() (gas: 13645572)
+[PASS] test_PermissionlessFinalizationWhenCallbackGasTooLow() (gas: 11129061)
+[PASS] test_Phase1CostsExactlyOneMillion() (gas: 392359)
+[PASS] test_Phase2CostsExactly350k() (gas: 11016795)
+[PASS] test_ReentrancyGenesisBlocked() (gas: 886703)
+[PASS] test_ReentrancyMysteryBlocked() (gas: 11430614)
+[PASS] test_RevertInsufficientAllowance() (gas: 181320)
+[PASS] test_RevertInsufficientBalance() (gas: 195192)
+[PASS] test_RevertNoAllowance() (gas: 146266)
+[PASS] test_RevertWhenTokenDecimalsUnexpected() (gas: 802071)
+[PASS] test_RevertWhenTokenDoesNotActuallyBurn() (gas: 818537)
+[PASS] test_StandardArtCombinationsUnique() (gas: 1482850)
+[PASS] test_StandardArtCoversEveryTrait() (gas: 743721)
+[PASS] test_StandardArtRendersWithoutGenesisTraits() (gas: 30070221)
+[PASS] test_StandardMetadataAfterReveal() (gas: 20024385)
+[PASS] test_TransfersAreStandard() (gas: 471691)
+[PASS] test_UnavailableRandomnessStaysPendingNoFallback() (gas: 11056275)
+[PASS] test_VRFConfigValidation() (gas: 252736)
+[PASS] test_ViewsRevertForNonexistent() (gas: 33573)
+Suite result: ok. 39 passed; 0 failed; 0 skipped; finished in 3.12s (3.62s CPU time)
+
+╭------------------------------------+--------+--------+---------╮
+| Test Suite                         | Passed | Failed | Skipped |
++================================================================+
+| BMCIlluminatiPassTest              | 39     | 0      | 0       |
+|------------------------------------+--------+--------+---------|
+| BMCIlluminatiPassCandidateTest     | 5      | 0      | 0       |
+|------------------------------------+--------+--------+---------|
+| BMCIlluminatiPassCandidateV2Test   | 6      | 0      | 0       |
+|------------------------------------+--------+--------+---------|
+| BMCIlluminatiPassCandidateV3Test   | 9      | 0      | 0       |
+|------------------------------------+--------+--------+---------|
+| BMCPassVRFChainlinkIntegrationTest | 4      | 0      | 0       |
+|------------------------------------+--------+--------+---------|
+| BMCPassVRFPrototypeTest            | 4      | 0      | 0       |
+|------------------------------------+--------+--------+---------|
+| BMCPostSaleSeedControllerTest      | 5      | 0      | 0       |
+|------------------------------------+--------+--------+---------|
+| ChainlinkMockIntegrationTest       | 4      | 0      | 0       |
+|------------------------------------+--------+--------+---------|
+| VRFRecoveryTest                    | 1      | 0      | 0       |
+|------------------------------------+--------+--------+---------|
+| VRFRecoveryAdditionalTest          | 1      | 0      | 0       |
+|------------------------------------+--------+--------+---------|
+| VRFSafetyPropertiesTest            | 2      | 0      | 0       |
+╰------------------------------------+--------+--------+---------╯
+

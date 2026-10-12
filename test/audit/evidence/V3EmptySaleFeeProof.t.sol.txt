@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.26;
+
+import {Test} from "forge-std/Test.sol";
+import {BMCIlluminatiPassCandidateV3 as V3} from "test/audit/fixtures/BMCIlluminatiPassCandidateV3.sol";
+import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+
+contract EmptySaleCoordinator is VRFCoordinatorV2_5Mock {
+    constructor() VRFCoordinatorV2_5Mock(0.001 ether, 1 gwei, 4e15) {}
+    function s_provingKeys(bytes32) external pure returns (bool, uint64) { return (true, 500 gwei); }
+}
+
+contract V3EmptySaleFeeProof is Test {
+    function test_EmptySaleCannotSpendSubscriptionFundsOnUnusableRandomness() public {
+        EmptySaleCoordinator coordinator = new EmptySaleCoordinator();
+        uint256 sub = coordinator.createSubscription();
+        // No BMC call or mint occurs in this empty-sale reproduction.
+        address tokenDependency = makeAddr("unused empty-sale BMC dependency");
+        V3 pass = new V3(address(this), tokenDependency, address(coordinator), uint64(block.timestamp + 1),
+            sub, keccak256("registered proof lane"), 150_000, 3, true,
+            "bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u");
+        coordinator.addConsumer(sub, address(pass));
+        vm.deal(address(this), 1 ether);
+        coordinator.fundSubscriptionWithNative{value: 1 ether}(sub);
+        (, uint96 beforeBalance,,,) = coordinator.getSubscription(sub);
+        vm.warp(pass.saleDeadline());
+        vm.prank(makeAddr("unprivileged caller"));
+        (bool ok, bytes memory data) = address(pass).call(abi.encodeCall(pass.requestSeed, ()));
+        if (ok && data.length == 32 && abi.decode(data, (uint256)) != 0) {
+            coordinator.fulfillRandomWords(abi.decode(data, (uint256)), address(pass));
+        }
+        (, uint96 afterBalance,,,) = coordinator.getSubscription(sub);
+        assertEq(afterBalance, beforeBalance, "L-1: empty sale paid for randomness no NFT can use");
+    }
+}

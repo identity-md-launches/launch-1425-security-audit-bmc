@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.26;
+
+import {Test} from "forge-std/Test.sol";
+import {BMCIlluminatiPassCandidateV3 as V3} from "test/audit/fixtures/BMCIlluminatiPassCandidateV3.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+
+contract CancelledSubscriptionBMC is ERC20, ERC20Burnable {
+    constructor(address buyer) ERC20("Proof BMC", "BMC") { _mint(buyer, 40_350_000 ether); }
+}
+
+/// @dev Models pre-request subscription cancellation/replacement. Chainlink subscriptions
+/// can be canceled before a seed request exists; registering a new subscription cannot revive its ID.
+contract CancelledSubscriptionCoordinator {
+    uint256 public activeSubscription = 1;
+    uint256 public nextId = 1;
+    mapping(uint256 => address) public consumer;
+    function s_provingKeys(bytes32) external pure returns (bool, uint64) { return (true, 500 gwei); }
+    function replaceSubscription() external { activeSubscription = 2; }
+    function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external returns (uint256 id) {
+        require(req.subId == activeSubscription, "InvalidSubscription");
+        id = nextId++;
+        consumer[id] = msg.sender;
+    }
+    function deliver(uint256 id) external {
+        uint256[] memory words = new uint256[](1);
+        words[0] = 42;
+        V3(consumer[id]).rawFulfillRandomWords(id, words);
+    }
+}
+
+contract V3CancelledSubscriptionProof is Test {
+    function test_OwnerCanRepairCancelledSubscriptionBeforeAnySeedWasRequested() public {
+        vm.warp(1_800_000_000);
+        address buyer = makeAddr("cancelled-subscription buyer");
+        CancelledSubscriptionBMC bmc = new CancelledSubscriptionBMC(buyer);
+        CancelledSubscriptionCoordinator coordinator = new CancelledSubscriptionCoordinator();
+        bytes32 key = keccak256("registered proof lane");
+        V3 pass = new V3(address(this), address(bmc), address(coordinator), uint64(block.timestamp + 30 days),
+            1, key, 150_000, 3, true,
+            "bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u");
+        vm.startPrank(buyer);
+        bmc.approve(address(pass), 40_350_000 ether);
+        for (uint256 i; i < 40; ++i) pass.mintGenesis();
+        pass.mintMystery();
+        vm.stopPrank();
+        coordinator.replaceSubscription();
+        vm.warp(pass.saleDeadline());
+        vm.expectRevert(bytes("InvalidSubscription"));
+        pass.requestSeed();
+        assertEq(pass.seedRequestId(), 0);
+
+        // EXPECTED: owner repairs only future request parameters on the same coordinator.
+        // ACTUAL: V3 has no operational repair function; burned BMC cannot be refunded.
+        (bool ok,) = address(pass).call(abi.encodeWithSignature(
+            "setVRFConfig(uint256,bytes32,uint32,uint16,bool)", uint256(2), key, uint32(150_000), uint16(3), true));
+        assertTrue(ok, "H-2: canceled immutable subscription cannot be replaced after buyers burn");
+        uint256 req = pass.requestSeed();
+        coordinator.deliver(req);
+        assertEq(pass.finalizeReveals(1), 1);
+        assertEq(pass.pendingReveals(), 0);
+        assertEq(pass.totalBurned(), 40_350_000 ether);
+        assertEq(bmc.totalSupply(), 0);
+    }
+}

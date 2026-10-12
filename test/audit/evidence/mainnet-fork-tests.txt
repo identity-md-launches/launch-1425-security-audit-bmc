@@ -1,0 +1,16 @@
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 5.16s
+Compiler run successful!
+
+Ran 3 tests for test/audit/CandidateV3MainnetFork.t.sol:CandidateV3MainnetForkTest
+[PASS] test_LiveCoordinatorAcceptsV25RequestAfterLocalRegistrationAndFunding() (gas: 6690631)
+[PASS] test_LiveCoordinatorLaneAndSubscription() (gas: 47869)
+Logs:
+  LINK balance: 0
+  Native balance: 20000000000000000
+  Consumers: 0
+
+[PASS] test_UnregisteredConsumerCanRecoverThroughLocalRegistration() (gas: 6763327)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 871.93ms (1.02s CPU time)
+
+Ran 1 test suite in 965.50ms (871.93ms CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
