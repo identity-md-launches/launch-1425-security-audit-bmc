@@ -1,0 +1,41 @@
+{
+  "suppliedCommit": "fba0ebd6456dd85282ccb2b2b52ea52f2c413e7d",
+  "upstreamCommit": "bf2a63c04d0e73a1a1b9c65a785d921526ec39b0",
+  "originalFiles": {
+    "src/experimental/BMCIlluminatiPassCandidateV3.sol": "262af67283b7cf171fe2d46d5e13384b331953c12f6876a9852f73264262cf26",
+    "test/BMCIlluminatiPassCandidateV3.t.sol": "2894b386a382f56c2109ccaff9f8d228248707691c9a312a75d272bfe4294c83",
+    "script/DeployBMCIlluminatiPassV3DryRun.s.sol": "79ee940ac1e6a6154286793310a3c50d19e9e5f0a095d40b488e0b8eaecbff8a"
+  },
+  "fixture": "test/audit/fixtures/BMCIlluminatiPassCandidateV3.sol",
+  "fixtureSha256": "04de91c83eddf9002eea882e4745c39754b1f26df4ad55286af7f4a220d7faaa",
+  "compiledRuntimeBytes": 23592,
+  "compiledRuntimeEqualToUpstream": true,
+  "fork": {
+    "chainId": 1,
+    "number": 26177090,
+    "hash": "0xcd99ba7251bb8dc2086d6c7b1d2f7ff5d91a053d362660ed6de6b5eb5dc11cc1",
+    "timestamp": "2026-10-12T14:48:35+00:00",
+    "rpc": "https://ethereum-rpc.publicnode.com"
+  },
+  "compiler": "solc 0.8.26; optimizer 200 runs; cancun; metadata bytecode_hash none; via_ir false",
+  "foundry": "1.8.5 (51a52c59cffd940f76eddd0b4bb1791aa4b5ac7f)",
+  "networkRequiredForDefaultTests": false,
+  "dependenciesInstalled": false,
+  "finalChecks": {
+    "forgeBuild": "pass",
+    "forgeTest": {
+      "passed": 102,
+      "failed": 0,
+      "skipped": 3
+    },
+    "v3MainnetFork": {
+      "passed": 3,
+      "failed": 0
+    },
+    "invariantHandlerCalls": 18432,
+    "originalBranchNonForkTests": {
+      "passed": 80,
+      "failed": 0
+    }
+  }
+}

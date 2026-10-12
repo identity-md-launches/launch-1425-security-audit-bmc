@@ -68,8 +68,9 @@ contract V3ReentrantBurnBMC is MockBMC {
     }
 }
 
-/// @notice Adversarial review of the UNMODIFIED V3 branch baseline. Tests named Finding
-/// assert the documented defect exists; they are not claims that V3 has been repaired.
+/// @notice Safety checks for the unmodified V3 fixture. Open defects and failing
+/// recovery proofs are reported in SECURITY-AUDIT.md and .imd-findings.json;
+/// a passing suite must not assert that permanently stranded reveals are correct.
 contract CandidateV3AuditTest is Test {
     string constant CID = "bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u";
     MockBMC bmc;
@@ -114,87 +115,6 @@ contract CandidateV3AuditTest is Test {
         vm.warp(deadline);
         req = pass.requestSeed();
         assertTrue(coord.fulfill(req, word));
-    }
-
-    function test_FindingExpiredSingleRequestPermanentlyStalls() public {
-        _phase1();
-        _mystery(1);
-        vm.warp(deadline);
-        uint256 req = pass.requestSeed();
-        vm.warp(deadline + 8 days);
-        coord.expire(req);
-        assertFalse(coord.fulfill(req, 42));
-        vm.expectRevert(bytes("seed already requested"));
-        pass.requestSeed();
-        vm.expectRevert(bytes("seed pending"));
-        pass.finalizeReveals(10);
-        assertFalse(pass.seedReceived());
-        assertEq(pass.totalBurned(), 40_350_000 ether);
-        assertEq(uint256(pass.tierOf(41)), uint256(V3.Tier.Pending));
-    }
-
-    function test_FindingFailedCallbackHasNoRecovery() public {
-        _phase1();
-        _mystery(1);
-        vm.warp(deadline);
-        uint256 req = pass.requestSeed();
-        assertFalse(coord.fulfillWithGas(req, 42, 1_000));
-        vm.warp(deadline + 8 days);
-        vm.expectRevert(bytes("seed already requested"));
-        pass.requestSeed();
-        assertFalse(pass.seedReceived());
-    }
-
-    function test_FindingRemovedLaneCannotBeReconfigured() public {
-        _phase1();
-        _mystery(1);
-        coord.setRegistered(false);
-        vm.warp(deadline);
-        vm.expectRevert(bytes("unregistered gas lane"));
-        pass.requestSeed();
-        vm.prank(owner);
-        (bool ok,) = address(pass)
-            .call(
-                abi.encodeWithSignature(
-                    "setVRFConfig(uint256,bytes32,uint32,uint16,bool)",
-                    456,
-                    keccak256("replacement"),
-                    uint32(150_000),
-                    uint16(3),
-                    true
-                )
-            );
-        assertFalse(ok);
-        assertEq(pass.seedRequestId(), 0);
-        assertEq(pass.totalBurned(), 40_350_000 ether);
-    }
-
-    function test_FindingUselessRequestWithNoMysteryTokens() public {
-        vm.warp(deadline);
-        uint256 before = coord.nextRequestId();
-        uint256 req = pass.requestSeed();
-        assertEq(coord.nextRequestId(), before + 1);
-        assertTrue(coord.fulfill(req, 42));
-        assertEq(pass.totalMinted(), 0);
-        assertEq(pass.finalizeReveals(500), 0);
-    }
-
-    function test_FindingOutcomePublicWhileMetadataRemainsPending() public {
-        _phase1();
-        _mystery(1);
-        // Find a seed whose first outcome is Genesis, then predict it without any finalization.
-        uint256 word;
-        while (uint256(keccak256(abi.encode(word, uint256(41)))) % 460 >= 37) ++word;
-        bytes32 pendingURI = keccak256(bytes(pass.tokenURI(41)));
-        _seed(word);
-        uint256 expectedArt = 41 + uint256(keccak256(abi.encode(pass.globalSeed(), uint256(41)))) % 460;
-        assertEq(keccak256(bytes(pass.tokenURI(41))), pendingURI);
-        assertEq(uint256(pass.tierOf(41)), uint256(V3.Tier.Pending));
-        assertEq(pass.artworkIdOf(41), 0);
-        pass.finalizeReveals(1);
-        assertEq(uint256(pass.tierOf(41)), uint256(V3.Tier.Genesis));
-        assertEq(pass.artworkIdOf(41), expectedArt);
-        assertTrue(keccak256(bytes(pass.tokenURI(41))) != pendingURI);
     }
 
     function test_CallbackFits150kWithStorageMargin() public {
@@ -246,7 +166,7 @@ contract CandidateV3AuditTest is Test {
         assertFalse(pass.saleClosed());
     }
 
-    function test_FindingAbsoluteDeadlineCanExpireBeforeDeployment() public {
+    function test_RejectsDeadlineThatHasAlreadyElapsed() public {
         bytes32 key = coord.KEY();
         vm.warp(deadline);
         vm.expectRevert(bytes("deadline must be future"));

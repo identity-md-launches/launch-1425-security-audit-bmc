@@ -1,0 +1,18 @@
+Compiling 61 files with Solc 0.8.26
+Solc 0.8.26 finished in 14.92s
+Compiler run successful!
+
+Ran 1 test for test/scratch/proofs/V3CancelledSubscriptionProof.t.sol:V3CancelledSubscriptionProof
+[FAIL: H-2: canceled immutable subscription cannot be replaced after buyers burn] test_OwnerCanRepairCancelledSubscriptionBeforeAnySeedWasRequested() (gas: 12563524)
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 17.34ms (16.33ms CPU time)
+
+Ran 1 test suite in 35.33ms (17.34ms CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/scratch/proofs/V3CancelledSubscriptionProof.t.sol:V3CancelledSubscriptionProof
+[FAIL: H-2: canceled immutable subscription cannot be replaced after buyers burn] test_OwnerCanRepairCancelledSubscriptionBeforeAnySeedWasRequested() (gas: 12563524)
+
+Encountered a total of 1 failing tests, 0 tests succeeded
+
+Tip: Run `forge test --rerun` to retry only the 1 failed test
+Tip: Run `forge test --debug --match-test <TEST_NAME>` to inspect one failing test in the debugger

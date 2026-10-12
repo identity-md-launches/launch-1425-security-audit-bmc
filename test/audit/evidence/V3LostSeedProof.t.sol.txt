@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.26;
+
+import {Test} from "forge-std/Test.sol";
+// The requested src/experimental contract is absent from this accepted checkout.
+// This is the preserved production-contract fixture, bytecode-identical to upstream V3.
+import {BMCIlluminatiPassCandidateV3 as V3} from "test/audit/fixtures/BMCIlluminatiPassCandidateV3.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+
+contract LostSeedBMC is ERC20, ERC20Burnable {
+    constructor(address buyer) ERC20("Proof BMC", "BMC") { _mint(buyer, 40_350_000 ether); }
+}
+
+/// @dev Models the off-chain service abandoning one request. Expiry is NOT a rule in
+/// Chainlink's on-chain coordinator. Fresh requests can still be served normally.
+contract LostSeedCoordinator {
+    uint256 public nextId = 1;
+    mapping(uint256 => address) public consumer;
+    mapping(uint256 => uint256) public requestedAt;
+    mapping(uint256 => bool) public dropped;
+    function s_provingKeys(bytes32) external pure returns (bool, uint64) { return (true, 500 gwei); }
+    function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata) external returns (uint256 id) {
+        id = nextId++;
+        consumer[id] = msg.sender;
+        requestedAt[id] = block.timestamp;
+    }
+    function abandon(uint256 id) external {
+        require(block.timestamp >= requestedAt[id] + 1 days, "before service expiry");
+        dropped[id] = true;
+    }
+    function deliver(uint256 id) external {
+        require(!dropped[id], "service abandoned request");
+        uint256[] memory words = new uint256[](1);
+        words[0] = 42;
+        V3(consumer[id]).rawFulfillRandomWords(id, words);
+    }
+}
+
+contract V3LostSeedProof is Test {
+    function test_MysteryBuyerMustBeAbleToRecoverAnAbandonedSeedWithoutAnotherBurn() public {
+        vm.warp(1_800_000_000);
+        address buyer = makeAddr("lost-seed buyer");
+        LostSeedBMC bmc = new LostSeedBMC(buyer);
+        LostSeedCoordinator coordinator = new LostSeedCoordinator();
+        V3 pass = new V3(address(this), address(bmc), address(coordinator), uint64(block.timestamp + 30 days),
+            1, keccak256("registered proof lane"), 150_000, 3, true,
+            "bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u");
+        vm.startPrank(buyer);
+        bmc.approve(address(pass), 40_350_000 ether);
+        for (uint256 i; i < 40; ++i) pass.mintGenesis();
+        pass.mintMystery();
+        vm.stopPrank();
+        vm.warp(pass.saleDeadline());
+        uint256 first = pass.requestSeed();
+        vm.warp(block.timestamp + 8 days);
+        coordinator.abandon(first);
+        vm.expectRevert(bytes("service abandoned request"));
+        coordinator.deliver(first);
+
+        // EXPECTED: a timeout recovery path submits a fresh request; no extra BMC is burned.
+        // ACTUAL V3: requestSeed reverts "seed already requested" forever.
+        (bool ok, bytes memory data) = address(pass).call(abi.encodeCall(pass.requestSeed, ()));
+        assertTrue(ok, "H-1: one lost seed request permanently strands paid mystery NFTs");
+        uint256 retry = abi.decode(data, (uint256));
+        assertTrue(retry != first);
+        coordinator.deliver(retry);
+        assertEq(pass.finalizeReveals(1), 1);
+        assertEq(pass.pendingReveals(), 0);
+        assertEq(pass.totalBurned(), 40_350_000 ether);
+        assertEq(bmc.totalSupply(), 0);
+    }
+}

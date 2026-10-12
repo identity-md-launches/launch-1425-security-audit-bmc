@@ -1,0 +1,7 @@
+Compiling 43 files with Solc 0.8.26
+Solc 0.8.26 finished in 12.53s
+Compiler run successful!
+Script ran successfully.
+
+== Return ==
+simulatedPass: contract BMCIlluminatiPassCandidateV3 0x5aAdFB43eF8dAF45DD80F4676345b7676f1D70e3

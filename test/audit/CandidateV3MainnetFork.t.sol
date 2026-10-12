@@ -76,15 +76,19 @@ contract CandidateV3MainnetForkTest is Test {
         emit log_named_uint("Consumers", consumers.length);
     }
 
-    function test_BurnsPersistWhenUnregisteredConsumerCannotRequestSeed() public {
+    function test_UnregisteredConsumerCanRecoverThroughLocalRegistration() public {
         _mint41();
         vm.warp(pass.saleDeadline());
         vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.InvalidConsumer.selector, SUB, address(pass)));
         pass.requestSeed();
-        assertEq(pass.totalBurned(), 40_350_000 ether);
-        assertEq(token.balanceOf(buyer), 0);
         assertEq(pass.seedRequestId(), 0);
-        assertEq(uint256(pass.tierOf(41)), uint256(V3.Tier.Pending));
+        (,,, address subOwner,) = vrf.getSubscription(SUB);
+        vm.prank(subOwner);
+        vrf.addConsumer(SUB, address(pass));
+        vm.deal(address(this), 1 ether);
+        vrf.fundSubscriptionWithNative{value: 1 ether}(SUB);
+        assertGt(pass.requestSeed(), 0);
+        assertEq(pass.totalBurned(), 40_350_000 ether);
     }
 
     function test_LiveCoordinatorAcceptsV25RequestAfterLocalRegistrationAndFunding() public {
@@ -99,24 +103,5 @@ contract CandidateV3MainnetForkTest is Test {
         assertTrue(req != 0);
         assertEq(pass.seedRequestId(), req);
         assertFalse(pass.seedReceived()); // No oracle fulfillment is simulated or claimed here.
-    }
-
-    function test_CancelledSubscriptionCannotBeReplacedInV3() public {
-        _mint41();
-        (,,, address subOwner,) = vrf.getSubscription(SUB);
-        vm.prank(subOwner);
-        vrf.cancelSubscription(SUB, subOwner);
-        vm.warp(pass.saleDeadline());
-        vm.expectRevert(SubscriptionAPI.InvalidSubscription.selector);
-        pass.requestSeed();
-        vm.prank(OWNER);
-        (bool ok,) = address(pass)
-            .call(
-                abi.encodeWithSignature(
-                    "setVRFConfig(uint256,bytes32,uint32,uint16,bool)", SUB, KEY, uint32(150_000), uint16(3), true
-                )
-            );
-        assertFalse(ok);
-        assertFalse(pass.seedReceived());
     }
 }
