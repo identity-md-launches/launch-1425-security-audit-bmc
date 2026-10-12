@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
@@ -37,7 +38,7 @@ import {StandardArt} from "./StandardArt.sol";
 ///  the retry delay while no word has arrived. All issued ids stay valid and the first delivered
 ///  word wins. No caller can discard a stored word. This recovery still trusts the coordinator's
 ///  delivery order; see the security report for the additional trust and subscription cost risks.
-contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
+contract BMCIlluminatiPass is ERC721, Ownable2Step, ReentrancyGuard {
     using Strings for uint256;
 
     // ------------------------------------------------------------------------------------------
@@ -151,6 +152,7 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
     // ------------------------------------------------------------------------------------------
 
     error InvalidVRFConfig();
+    error OwnershipRenunciationDisabled();
     error RetryUnavailable();
     error GenesisPhaseOver();
     error GenesisPhaseNotOver();
@@ -188,6 +190,11 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
     // ------------------------------------------------------------------------------------------
     // Owner configuration (disclosed operational permissions)
     // ------------------------------------------------------------------------------------------
+
+    /// @notice Keep the owner role available to repair future requests and stalled reveals.
+    function renounceOwnership() public view override onlyOwner {
+        revert OwnershipRenunciationDisabled();
+    }
 
     /// @notice Set the Chainlink VRF v2.5 request parameters used for future mints and retries.
     /// @dev Only affects requests made after this call. Cannot touch stored randomness or reveals.
@@ -272,6 +279,14 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
 
     function _requestRandomness(uint256 tokenId) private returns (uint256 requestId) {
         VRFConfig memory cfg = vrfConfig;
+        // The coordinator accepts unknown keys, but the oracle never serves them. Check on
+        // every mint/retry, including lane retirement; a failure rolls back the entire mint.
+        // Deliberately avoid dependency calls in the empty-chain factory constructor.
+        (bool ok, bytes memory data) =
+            address(VRF_COORDINATOR).staticcall(abi.encodeWithSignature("s_provingKeys(bytes32)", cfg.keyHash));
+        require(ok && data.length >= 64, "unregistered gas lane");
+        (bool exists,) = abi.decode(data, (bool, uint64));
+        require(exists, "unregistered gas lane");
         lastRequestAt[tokenId] = block.timestamp;
 
         requestId = VRF_COORDINATOR.requestRandomWords(
@@ -528,7 +543,7 @@ contract BMCIlluminatiPass is ERC721, Ownable, ReentrancyGuard {
         return string.concat(
             '{"name":"BMC Illuminati Pass #',
             tokenId.toString(),
-            ' - Pending Reveal","description":"A BMC Illuminati Pass mystery mint awaiting Chainlink VRF randomness. The outcome (Genesis or Standard) is not yet determined on-chain. Metadata becomes permanent once revealed.","image":"data:image/svg+xml;base64,',
+            ' - Pending Reveal","description":"A BMC Illuminati Pass mystery mint awaiting finalization in mint order. Randomness may already be public and the outcome may be computable before finalization. Pending Reveal does not mean the outcome is unknown. Metadata becomes permanent once revealed.","image":"data:image/svg+xml;base64,',
             Base64.encode(bytes(svg)),
             '","attributes":[{"trait_type":"Tier","value":"Pending Reveal"}]}'
         );

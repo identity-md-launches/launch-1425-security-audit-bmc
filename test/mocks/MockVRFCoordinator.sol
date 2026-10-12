@@ -23,6 +23,17 @@ contract MockVRFCoordinator {
     uint256 public nextRequestId = 1000;
     mapping(uint256 => Req) public requests;
     bool public rejectRequests;
+    mapping(bytes32 => bool) private _unregisteredLane;
+
+    /// @dev Test lanes are registered by default; requests intentionally accept invalid lanes,
+    ///      like Mainnet's coordinator. The consumer must check this getter itself.
+    function s_provingKeys(bytes32 key) external view virtual returns (bool, uint64) {
+        return (key != bytes32(0) && !_unregisteredLane[key], uint64(500 gwei));
+    }
+
+    function setLaneRegistered(bytes32 key, bool registered) external {
+        _unregisteredLane[key] = !registered;
+    }
 
     function setRejectRequests(bool v) external {
         rejectRequests = v;

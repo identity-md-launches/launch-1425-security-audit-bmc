@@ -127,3 +127,68 @@ No simulation address is a deployed Mainnet address.
 
 Slither/Mythril were not run. The final external launch checker, signed manifest/deployment simulation,
 real oracle delivery, long-term pinning and independent audit remain separate from these local checks.
+
+## Revision verification — 2026-10-12
+
+The accepted pre-revision tree was independently run on this machine before editing:
+`forge build` passed; `forge test` reported **75 passed, 0 failed, 3 skipped**. The original-branch
+80-test evidence above is retained from the accepted round, not claimed freshly re-executed here.
+This revision uses Foundry **1.8.3**, commit `cae51ad458f6abb64852b7709eb784352429825d`,
+Solidity **0.8.26**, and the project's unchanged configuration and vendored dependencies.
+
+Before edits, disposable scratch tests independently confirmed all five reopened production
+observations: four local advisory demonstrations passed; the invalid-lane Mainnet fork reproduction
+passed at block **26,177,335**. The invalid lane committed the buyer's 350,000 BMC burn and two
+request commitments; the nonexistent-subscription control rolled back. The official mock billed
+both original/retry deliveries but production revealed once. These were defect demonstrations,
+not tests asserting the repair. Scratch files are not delivered.
+
+Final delivered suite results:
+
+| Check | Result |
+| --- | --- |
+| `forge build` | Passed with the existing project configuration |
+| `forge test` | **87 passed, 0 failed, 4 skipped** (91 reported cases) |
+| Production economic/metadata tests | 40 passed |
+| Official mock integration, with added lane-getter subclass | 5 passed |
+| Existing expiry/recovery regressions | 11 passed |
+| New lane/configuration/ownership safety regressions | 10 passed |
+| Existing factory/constructor/bytecode checks | 3 passed |
+| Unchanged V3 adversarial audit suite | 18 passed, including baseline defect demonstrations |
+| Dedicated Mainnet fork suites | **10 passed, 0 failed, 0 skipped** |
+| Supplied expiry proof, setup adapted in scratch for constructor ABI and lane getter | 1 passed; no extra burn, expiry recovery works |
+| Offline Genesis CID reconstruction | All 77 files verified |
+| `git diff --check` | Passed |
+
+The four offline skips are two production fork tests and `setUp` skips for two fork suites.
+Those suites contain four tests each; all ten fork tests were run separately. Default tests remain
+offline and require no environment variables. Mainnet command:
+
+```bash
+forge test --match-path 'test/*MainnetFork.t.sol' \
+  --fork-url http://127.0.0.1:33519/rpc/1 --fork-block-number 26177335 -vv
+```
+
+Full output: [audit/revision-mainnet-fork-tests.txt](audit/revision-mainnet-fork-tests.txt).
+The endpoint is the contributor's machine-local provider, not a portable public RPC.
+Block hash: `0x57935951c91171a2e955f162df55f65474e516347408d5aa6fb804d3b8cbacfe`.
+Timestamp: 2026-10-12 15:37:47 UTC.
+
+Fresh fork tests execute real BMC/coordinator code, create only local-fork subscription/request state,
+confirm the coordinator itself accepts an invalid lane, verify repaired production rolls back real
+BMC balance/supply/allowance, and successfully retry after lane repair. They also confirm a
+zero-funded native subscription accepts a request. No live transaction, signature, actual oracle
+proof, off-chain delivery/expiry or Mainnet fulfillment charge was generated or claimed.
+
+The nominated lane still reports registered/500 gwei. The nominated subscription still reports
+0 LINK, 0.02 ETH and no consumers. This is a snapshot, not a readiness guarantee.
+The revised production runtime is **23,757 bytes**, **819 bytes** below EIP-170; V3 fixture remains
+23,592 bytes. The existing factory test still verifies eight static words, zero deployment value,
+constructor success with codeless dependencies, correct owner and absence of forbidden opcodes.
+
+Funding and ignored-delivery charge regressions intentionally document retained low-severity risks;
+passing them does not mean those risks were fixed. Two-step transfer and disabled renunciation
+protect against accidental role loss, not lost signing keys. Pending metadata discloses computability
+without claiming to eliminate the prediction/trading gap. Findings and dispositions are in the
+security report and `.imd-responses.json`. No Slither/Mythril, additional paid job, broadcast,
+key access or production deployment was performed.

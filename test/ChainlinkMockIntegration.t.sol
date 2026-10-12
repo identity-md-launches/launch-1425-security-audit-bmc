@@ -6,6 +6,7 @@ import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VR
 import {SubscriptionAPI} from "@chainlink/contracts/src/v0.8/vrf/dev/SubscriptionAPI.sol";
 import {BMCIlluminatiPass} from "../src/BMCIlluminatiPass.sol";
 import {MockBMC} from "./mocks/MockBMC.sol";
+import {LaneAwareVRFCoordinatorV2_5Mock} from "./mocks/LaneAwareVRFCoordinatorV2_5Mock.sol";
 
 /// @notice End-to-end check against Chainlink's own VRF v2.5 coordinator mock: subscription
 ///         creation, consumer registration, request ABI, fulfillment callback and the "unfunded
@@ -23,7 +24,7 @@ contract ChainlinkMockIntegrationTest is Test {
     function setUp() public {
         bmc = new MockBMC();
         // base fee 0.1 LINK, gas price 1 gwei, 4e15 wei per LINK
-        coordinator = new VRFCoordinatorV2_5Mock(0.1 ether, 1e9, 4e15);
+        coordinator = new LaneAwareVRFCoordinatorV2_5Mock();
 
         vm.startPrank(subOwner);
         subId = coordinator.createSubscription();
@@ -79,6 +80,43 @@ contract ChainlinkMockIntegrationTest is Test {
         vm.stopPrank();
         assertEq(bmc.balanceOf(alice), 350_000e18, "burn rolled back");
         assertEq(pass.totalMinted(), 40);
+    }
+
+    /// @dev Accepted recovery trade-off: the coordinator bills both valid requests even when
+    ///      the consumer ignores the late word. Amounts are mock pricing, not Mainnet estimates.
+    function test_UnfundedMintAndPermissionlessRetryCanChargeForIgnoredDelivery() public {
+        bmc.mint(alice, 350_000 ether);
+        uint256 balance = bmc.balanceOf(alice);
+        uint256 supply = bmc.totalSupply();
+        vm.startPrank(alice);
+        bmc.approve(address(pass), 350_000 ether);
+        (uint256 id, uint256 first) = pass.mintMystery();
+        vm.stopPrank();
+        assertEq(bmc.balanceOf(alice), balance - 350_000 ether);
+        assertEq(bmc.totalSupply(), supply - 350_000 ether);
+        assertEq(pass.totalBurned(), 40_350_000 ether);
+        vm.expectRevert(SubscriptionAPI.InsufficientBalance.selector);
+        coordinator.fulfillRandomWords(first, address(pass));
+        vm.warp(block.timestamp + 1 days);
+        address unrelatedCaller = makeAddr("unrelated retry sponsor");
+        vm.prank(unrelatedCaller);
+        uint256 retry = pass.rerequestRandomness(id);
+        assertTrue(retry != first);
+        assertEq(pass.lastRequestAt(id), block.timestamp);
+        vm.expectRevert(SubscriptionAPI.InsufficientBalance.selector);
+        coordinator.fulfillRandomWords(retry, address(pass));
+        coordinator.fundSubscription(subId, 100 ether);
+        (uint96 before,,,,) = coordinator.getSubscription(subId);
+        coordinator.fulfillRandomWords(first, address(pass));
+        (uint96 afterFirst,,,,) = coordinator.getSubscription(subId);
+        uint16 artwork = pass.artworkIdOf(id);
+        coordinator.fulfillRandomWords(retry, address(pass));
+        (uint96 afterRetry,,,,) = coordinator.getSubscription(subId);
+        assertLt(afterFirst, before);
+        assertLt(afterRetry, afterFirst, "ignored delivery still charged");
+        assertEq(pass.revealedCount(), 1);
+        assertEq(pass.artworkIdOf(id), artwork);
+        assertEq(pass.totalBurned(), 40_350_000 ether);
     }
 
     function test_RequestAndFulfilThroughChainlinkMock() public {

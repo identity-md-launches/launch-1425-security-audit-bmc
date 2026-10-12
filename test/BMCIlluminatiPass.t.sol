@@ -446,6 +446,26 @@ contract BMCIlluminatiPassTest is Test {
         assertEq(pass.artworkIdOf(id), 0);
     }
 
+    function test_PendingMetadataDisclosesPredictableStoredOutcome() public {
+        _finishPhase1();
+        (, uint256 first) = _mintMysteryAs(alice);
+        (uint256 id, uint256 second) = _mintMysteryAs(alice);
+        string memory json = _decodeTokenURI(id);
+        assertTrue(_contains(json, "Randomness may already be public"));
+        assertTrue(_contains(json, "outcome may be computable before finalization"));
+        assertFalse(_contains(json, "not yet determined on-chain"));
+        assertTrue(vrf.fulfill(second, 0xBEEF));
+        assertEq(pass.finalizeReveals(10), 0, "predecessor blocks finalization");
+        assertEq(uint256(pass.revealStatusOf(id)), uint256(BMCIlluminatiPass.RevealStatus.RandomnessStored));
+        assertEq(uint256(pass.tierOf(id)), uint256(BMCIlluminatiPass.Tier.Pending));
+        assertEq(_decodeTokenURI(id), json, "disclosure applies while waiting and while stored");
+        uint256 slot = uint256(keccak256(abi.encode(uint256(0xBEEF), id))) % 459;
+        assertEq(slot, 331);
+        assertTrue(vrf.fulfill(first, 1));
+        assertEq(pass.artworkIdOf(id), slot - 37 + 1);
+        assertEq(pass.artworkIdOf(id), 295, "stored successor outcome was predictable");
+    }
+
     function test_FulfillRevealsAndLocksMetadata() public {
         _finishPhase1();
         (uint256 id, uint256 req) = _mintMysteryAs(alice);

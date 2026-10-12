@@ -15,7 +15,7 @@ contract V3AuditCoordinator is ExpiringCoordinator {
         registered = value;
     }
 
-    function s_provingKeys(bytes32 key) external view returns (bool, uint64) {
+    function s_provingKeys(bytes32 key) external view override returns (bool, uint64) {
         return (registered && key == KEY, 500 gwei);
     }
 }

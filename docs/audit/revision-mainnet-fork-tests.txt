@@ -1,0 +1,27 @@
+No files changed, compilation skipped
+
+Ran 2 tests for test/BMCMainnetFork.t.sol:BMCMainnetForkTest
+[PASS] test_RealBMCGenesisMint() (gas: 706878)
+[PASS] test_RealBMCMysteryMintAndRetryWithoutAnotherBurn() (gas: 6605447)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 281.33ms (210.36ms CPU time)
+
+Ran 4 tests for test/audit/CandidateV3MainnetFork.t.sol:CandidateV3MainnetForkTest
+[PASS] test_BurnsPersistWhenUnregisteredConsumerCannotRequestSeed() (gas: 6498302)
+[PASS] test_CancelledSubscriptionCannotBeReplacedInV3() (gas: 6574134)
+[PASS] test_LiveCoordinatorAcceptsV25RequestAfterLocalRegistrationAndFunding() (gas: 6690620)
+[PASS] test_LiveCoordinatorLaneAndSubscription() (gas: 47847)
+Logs:
+  LINK balance: 0
+  Native balance: 20000000000000000
+  Consumers: 0
+
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 331.92ms (179.27ms CPU time)
+
+Ran 4 tests for test/VRFConfigMainnetFork.t.sol:VRFConfigMainnetForkTest
+[PASS] test_BadSetterLaneRefusesRealMintAndRetryUntilRepair() (gas: 7034274)
+[PASS] test_LiveCoordinatorStillAcceptsUnregisteredLaneWithoutConsumerGuard() (gas: 483224)
+[PASS] test_UnregisteredConstructorLaneRollsBackRealBMCBurn() (gas: 6772071)
+[PASS] test_ZeroNativeFundingStillAcceptsRequestAndCommitsBurn() (gas: 6485907)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 266.59ms (193.23ms CPU time)
+
+Ran 3 test suites in 617.34ms (879.84ms CPU time): 10 tests passed, 0 failed, 0 skipped (10 total tests)

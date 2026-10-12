@@ -15,7 +15,7 @@ All deployment scripts in this checkout simulate locally and do not broadcast or
 
 | Path | What |
 | --- | --- |
-| `src/BMCIlluminatiPass.sol` | The collection contract (ERC721 + Ownable + ReentrancyGuard, VRF v2.5 consumer). |
+| `src/BMCIlluminatiPass.sol` | The collection contract (ERC721 + Ownable2Step + ReentrancyGuard, VRF v2.5 consumer). |
 | `src/StandardArt.sol` | Internal library rendering the 423 Standard SVGs and their traits. |
 | `src/interfaces/IBMCToken.sol` | Minimal BMC interface (`burnFrom`, `decimals`, ...). |
 | `script/Deploy.s.sol` | Local deployment simulation; explicit owner and VRF configuration. |
@@ -69,21 +69,21 @@ says underfunded requests can expire after 24 hours. Funding later does not revi
 For an NFT still awaiting randomness, anyone may call `rerequestRandomness(tokenId)` once a full day
 has elapsed since its most recent request. This burns no additional BMC and uses the current VRF
 configuration. All issued request IDs remain valid, and the first delivered word is permanent.
-Tokens with stored or finalized randomness cannot be retried. An expired earlier token can still
+Tokens with stored or finalized randomness cannot be retried. Pending metadata warns that a stored word may already make an outcome computable before its predecessor finalizes. An expired earlier token can still
 block later finalizations until a replacement word arrives.
 
 This recovery requires a functioning coordinator and funded, authorized subscription. The timeout
 cannot prove expiry; concurrent requests increase reliance on oracle delivery order and can incur
-additional subscription costs. These tradeoffs are described in the security report. There is no
+additional subscription costs. Any caller can create one more request per pending token per day, and every served request can be charged even if its word is ignored. A request accepted with inadequate funding still commits the BMC burn. Register and fund the subscription before sales and monitor its balance and outstanding requests. These tradeoffs are described in the security report. There is no
 fallback randomness, refund mint, or coordinator replacement.
 
 ## Privileged powers and operational responsibilities
 
 | Power | Who | Effect | Limits |
 | --- | --- | --- | --- |
-| `setVRFConfig(subId, keyHash, callbackGas, confirmations, nativePayment)` | owner, any time | Parameters for **future** VRF requests. | Bounded (gas 150k-2.5M, confirmations 3-200). Cannot affect stored randomness or revealed tokens. A bad config blocks new mystery requests and retries until corrected; old request IDs remain valid. |
-| VRF subscription admin | subscription owner on the Chainlink coordinator | Add/remove the pass as consumer, fund with LINK or ETH. | Removing the consumer or defunding blocks new requests / delays fulfilment. Anyone can fund. |
-| `transferOwnership` / `renounceOwnership` | owner | Standard OpenZeppelin Ownable. | Renouncing freezes the VRF config forever. |
+| `setVRFConfig(subId, keyHash, callbackGas, confirmations, nativePayment)` | owner, any time | Parameters for **future** VRF requests. | Bounded (gas 150k-2.5M, confirmations 3-200). Cannot affect stored randomness or revealed tokens. Every mint/retry checks the live registered gas lane; invalid lanes, subscriptions or consumers revert the whole transaction. Funding is a separate operational precondition: an underfunded subscription can still accept a request. Old request IDs remain valid. |
+| VRF subscription admin | subscription owner on the Chainlink coordinator | Add/remove the pass as consumer, fund with LINK or ETH. | Removing the consumer blocks new requests. Defunding can delay fulfillment while new requests are still accepted. Anyone can fund. |
+| `transferOwnership` / `acceptOwnership` | current owner / proposed owner | OpenZeppelin Ownable2Step handoff. | Current owner retains repair powers until the proposed owner accepts. A zero-address proposal cancels the handoff. `renounceOwnership` reverts. |
 
 There is no owner mint, airdrop, artwork assignment, metadata edit, price change, pause,
 withdrawal or upgrade path. The contract is not a proxy. The coordinator address is immutable.
@@ -113,7 +113,7 @@ Before actual launch, the operator must verify the nominated subscription, gas l
 register the predicted contract as a consumer; fund for up to 460 initial requests plus possible retries;
 maintain IPFS pins; and obtain the final independent review. The pass exposes an owner-only
 `setVRFConfig` for later subscription/lane repairs, but initial minting does not depend on that call.
-Keep the immutable coordinator dependency and ownership-renunciation risk in mind.
+Keep the immutable coordinator dependency and loss-of-owner-key risk in mind. Transfers require acceptance and ownership cannot be renounced.
 
 The static site needs the confirmed pass address in `website/config.js`. Do not put a simulation address
 there. Monitor `pendingReveals()`; anyone can finalize stored words or retry eligible stalled tokens.

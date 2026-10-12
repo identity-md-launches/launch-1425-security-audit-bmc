@@ -54,7 +54,7 @@ Constructor order:
 2. `address bmcToken`: `0x38224239f2BDae357D47cb864BC533d7f72dF961`.
 3. `address vrfCoordinator`: `0xD7f86b4b8Cae7D942340FF628F82735b7a20893a`.
 4. `uint256 subscriptionId`: operator's real v2.5 subscription, validated nonzero.
-5. `bytes32 keyHash`: registered Mainnet gas lane, validated nonzero.
+5. `bytes32 keyHash`: registered Mainnet gas lane, validated nonzero in construction and checked against the live coordinator on each mint/retry.
 6. `uint32 callbackGasLimit`: 150,000–2,500,000; production simulation uses 500,000.
 7. `uint16 requestConfirmations`: 3–200; simulation uses 3.
 8. `bool nativePayment`: `1` for ETH, `0` for LINK; simulation uses `1`.
@@ -88,3 +88,42 @@ Build configuration and dependencies (`foundry.toml`, locks, remappings, `lib/`,
 `.git/`, `.github/`, `.env` files and `node_modules/` were not modified. No new dependency was
 installed. All submitted tests run offline using the existing vendored libraries. Optional fork
 checks are recorded separately and skip explicitly without a Mainnet fork.
+
+## Revision: reopened production findings
+
+This revision preserves the accepted architecture and the original V3 audit fixture. The mandatory
+medium finding and all four advisories were reproduced before editing production. A Mainnet fork
+at block **26,177,335** showed the live coordinator accepting an unregistered lane, committing the
+initial buyer burn and another bad-lane retry. Local tests independently reproduced underfunded
+burns, charges for ignored retry deliveries, immediate ownership loss, and a predictable stored
+successor. The requested V3 remains an unchanged audit target, not a launch application.
+
+| File | Revision change | Reproduced finding / reason |
+| --- | --- | --- |
+| `src/BMCIlluminatiPass.sol` | `_requestRandomness` staticcalls `s_provingKeys` before submitting each mint/retry request; rejects missing, reverting, short, malformed or unregistered lane results. A failed lookup rolls back the entire mint, including BMC balance, supply and allowance. No dependency query was added to the constructor or setter. | Mandatory `93c8c9763cf5`: the live coordinator deliberately accepts invalid keys. Request-time validation also covers retired lanes while retaining empty-chain factory deployment. |
+| `src/BMCIlluminatiPass.sol` | Uses the existing vendored `Ownable2Step`; ownership handoffs require acceptance. `renounceOwnership` reverts, preserving the configuration recovery role. | Advisory `3a69bc2e9e57` reproduced: an immediate mistaken transfer or renunciation removes the existing owner's repair path. This prevents accidental role loss, not loss of a signing key or malicious accepted ownership. |
+| `src/BMCIlluminatiPass.sol` | Pending description says randomness may already be public and outcomes may be computable before finalization. | Advisory `2781c3b45e92` reproduced with word `0xBEEF` for token 42 and a stalled token 41; artwork 295 was predictable. Changes disclosure only; no provisional artwork, finalization-order change or new preview algorithm. |
+| `test/VRFConfigSafety.t.sol` | Ten regressions cover invalid constructor/setter lanes, retirement and repair, failed/malformed lookup rollback, codeless dependency deployment, two-step handoff/cancellation and disabled renunciation. | Tests the two reproduced behavioral repairs without altering factory arguments. |
+| `test/VRFConfigMainnetFork.t.sol` | Four optional fork tests demonstrate the coordinator's unchecked-lane behavior, real BMC rollback for constructor/setter mistakes, retry repair, and acceptance with zero native funding. | Independently reproduce mandatory `93c8c9763cf5` and advisory `3753c03fb830` against real Mainnet bytecode. Only local fork state changes. |
+| `test/BMCIlluminatiPass.t.sol` | Added a metadata regression proving the stored successor is computable and that the disclosure applies before and after delivery. | Advisory `2781c3b45e92`. |
+| `test/ChainlinkMockIntegration.t.sol`, `test/mocks/LaneAwareVRFCoordinatorV2_5Mock.sol` | Test-only subclass adds the lane getter omitted by the official mock; request/subscription/billing logic stays unchanged. Added a regression recording funded fulfillment of both original and retry requests, with two charges and one reveal. | Compatibility with required production validation; advisory `1a044c26a8ab` and underfunding explicitly exercised, not claimed repaired. |
+| `test/mocks/MockVRFCoordinator.sol`, `test/VRFRecovery.t.sol`, `test/audit/CandidateV3Audit.t.sol` | Existing test coordinators expose the lane getter; V3 coordinator declares the necessary override. | Tests must model the coordinator API used by production. No V3 fixture or V3 coordinator behavior changes. |
+| `README.md`, `docs/SECURITY-REVIEW.md`, `docs/TEST-RESULTS.md`, `docs/audit/revision-mainnet-fork-tests.txt` | Record corrected owner/configuration surface, exact reproductions, remaining risks, revision verdict and fresh checks. | Audit deliverable and corrected operational claims. |
+| `.imd-responses.json` | Answers all twelve finding IDs, including the previously addressed imported findings and unchanged V3 audit findings. | Required revision response format. |
+
+Advisories `3753c03fb830` (underfunding) and `1a044c26a8ab` (ignored-delivery charges) reproduce;
+their evidence is accepted. Their proposed optional policy changes are declined. Permissionless
+recovery is the already accepted fix for expired requests. Requiring ownership/approval or capping
+retries can remove that recovery for an unreachable holder; extending the timeout to a guessed
+node setting is not justified. An arbitrary balance threshold would not reserve payment for all
+outstanding requests or shared consumers and would not guarantee service. Funding, monitoring,
+consumer registration and budgeting for retries remain explicit release conditions. These two
+`disputed` responses dispute a required code change, not the observed behavior; they are unresolved
+operational risks, not false positives.
+
+Fresh checks: `forge build` and unqualified `forge test` pass with unchanged project configuration;
+**87 passed, 0 failed, 4 skipped** offline; **10 passed, 0 failed** in the dedicated Mainnet fork
+suites. Runtime is **23,757 bytes**, below EIP-170 by **819 bytes**. Factory tests still deploy using
+eight static constructor words, codeless dependencies and the explicit nominated owner, and scan
+for forbidden opcodes. The Genesis directory still independently reproduces its constant CID.
+No dependency, build configuration, launch manifest, deployment or live transaction was changed.

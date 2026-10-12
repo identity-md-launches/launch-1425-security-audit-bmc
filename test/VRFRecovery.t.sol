@@ -9,6 +9,10 @@ import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/V
 /// @dev Models an oracle dropping an underfunded request after 24h, NOT an on-chain
 /// coordinator expiry rule. Unlike the official mock, funding cannot revive a dropped request.
 contract ExpiringCoordinator {
+    function s_provingKeys(bytes32 key) external view virtual returns (bool, uint64) {
+        return (key != bytes32(0), uint64(500 gwei));
+    }
+
     uint256 public nextRequestId = 1000;
     mapping(uint256 => address) public consumerOf;
     mapping(uint256 => uint256) public requestedAt;
@@ -63,6 +67,10 @@ contract ExpiringCoordinator {
 }
 
 contract MalformedCoordinator {
+    function s_provingKeys(bytes32 key) external pure returns (bool, uint64) {
+        return (key != bytes32(0), uint64(500 gwei));
+    }
+
     uint256 public requestId;
 
     function setRequestId(uint256 value) external {

@@ -28,7 +28,130 @@ All V3 source line numbers below refer to the **pinned original branch**, so for
 fixture cannot change the cited locations. [Evidence provenance](audit/PROVENANCE.md) records source
 hashes, the exact fork block and limitations. [Test results](TEST-RESULTS.md) records commands and counts.
 
-## Severity-ranked findings
+## Reopened production review — revision
+
+**Production verdict: fixes verified locally; release remains conditional on subscription setup,
+adequate ongoing funding and accessible administration. The nominated subscription is not ready
+for sales. Candidate V3's NOT READY verdict above is unchanged.** The original Candidate fixture
+was not rewritten to satisfy production findings. All twelve reviewer IDs are answered in
+[`.imd-responses.json`](../.imd-responses.json).
+
+| Revision ID | Severity | Production finding | Disposition |
+| --- | --- | --- | --- |
+| P-M1 / `93c8c9763cf5` | Medium | Unregistered gas lane accepts irreversible buyer burns but cannot deliver randomness | Reproduced on Mainnet fork; request-time lane guard added. |
+| P-L1 / `3753c03fb830` | Low | Underfunded subscription accepts burns and requests it cannot presently serve | Reproduced locally and on fork; retained operational precondition, documented. |
+| P-L2 / `1a044c26a8ab` | Low | Permissionless retries can charge the subscription for ignored deliveries | Reproduced with official mock billing; retained recovery trade-off, documented. |
+| P-L3 / `3a69bc2e9e57` | Low | Mistaken single-step transfer or renunciation removes the sole configuration repair role | Reproduced locally; two-step transfer and disabled renunciation added. |
+| P-L4 / `2781c3b45e92` | Low | Stored successor outcome is often computable while pending metadata claims otherwise | Reproduced locally; inaccurate description corrected. Outcome visibility gap still exists. |
+
+### P-M1 — Unregistered lane request commits the burn
+
+**Locations:** `src/BMCIlluminatiPass.sol`, `mintMystery` lines 255–265,
+`_requestRandomness` lines 280–305, `_setVRFConfig` lines 211–232. Before this revision the helper
+had no lane query. The constructor/setter only checked that the key was nonzero.
+
+**Before-fix reproduction:** At Mainnet block **26,177,335**, create a local-fork subscription,
+register the locally constructed pass and fund 1 ETH. Construct/configure with
+`keccak256("not a registered mainnet lane")`, for which `s_provingKeys` returns `(false, 0)`.
+Mint 40 Genesis using real BMC bytecode, then mint token 41. It succeeds: buyer loses 350,000 BMC,
+BMC total supply decreases by the same amount, a nonzero coordinator request commitment appears,
+and the NFT remains AwaitingRandomness. Advance one day: a retry commits another bad-lane request.
+As a control, a nonexistent subscription with the real lane reverts and restores all buyer BMC.
+The scratch before-fix test passed, confirming the reported behavior rather than testing the fix.
+
+**Impact:** A typo or retired lane strands reveals until the owner repairs the lane. A stalled
+predecessor blocks later finalizations. Subscription funding cannot make an unknown proving key
+serviceable. Losing configuration administration can make the stall permanent.
+
+**Resolution:** The shared helper now staticcalls the immutable coordinator's `s_provingKeys`
+before `requestRandomWords`, requires at least two ABI words, and decodes a registered boolean
+and `uint64` lane limit. Missing/reverting/short/malformed results fail closed. The check runs on
+every mint/retry, not just configuration; no external call was added to construction. Although
+`_burnExact` executes first, the guard's revert atomically restores the entire mint transaction,
+including the token's balance, allowance and total supply. No burn remains committed on rejection.
+The owner can still set valid static configuration words on an empty chain and repair them later.
+
+**Delivered reproduction/regressions:** `test/VRFConfigMainnetFork.t.sol` demonstrates that the real
+coordinator still accepts unknown lanes via a deliberately unchecked test probe, while repaired
+production rejects them and restores real BMC. `test/VRFConfigSafety.t.sol` additionally covers
+constructor/setter mistakes, lane retirement, malformed lookup responses, unchanged original request
+and retry timestamp on failure, and successful repair. No oracle proof/fulfillment was produced
+on the fork; requests and commitment state were verified.
+
+### P-L1 / P-L2 — Funding and duplicate billing remain recovery trade-offs
+
+**Locations:** `mintMystery` lines 255–265, `rerequestRandomness` lines 271–277,
+`rawFulfillRandomWords` lines 329–350 in `src/BMCIlluminatiPass.sol`.
+
+**Reproduction:** A fresh zero-funded subscription with a registered consumer accepts a mystery
+request and commits 350,000 BMC burned. The official mock then rejects delivery with
+`InsufficientBalance`. After one simulated day an unrelated caller can open a retry. Funding the
+subscription and delivering the original and retry reduces its balance twice, but the NFT reveals
+only once. Before-fix mock charges were 25,041,686,000,000,000,000 and
+25,010,241,250,000,000,000 juels; these are mock pricing, not Mainnet costs. A new fork regression
+confirms a zero-native/zero-LINK live coordinator subscription accepts the request and burn.
+
+**Evidence:** `test_UnfundedMintAndPermissionlessRetryCanChargeForIgnoredDelivery` in
+`test/ChainlinkMockIntegration.t.sol`; `test_ZeroNativeFundingStillAcceptsRequestAndCommitsBurn` in
+`test/VRFConfigMainnetFork.t.sol`. The official mock's request/subscription/billing code is unchanged;
+a small test subclass supplies the lane getter missing from that mock. It does not model service
+expiry. Expiry is separately tested with the existing dropped-request coordinator.
+
+**Disposition/recommendation:** These low-severity behaviors are real and retained explicitly.
+Do not begin sales until consumer registration and adequate funding are established; budget for
+up to 460 initial requests plus retries, monitor both balances and outstanding requests, and
+maintain administration. The 0.434 ETH estimate for one 500k callback on the 500-gwei lane is a
+buffer estimate, not a guaranteed charge, an exact aggregate requirement or reserved balance.
+The existing [funding formula][cl-sub] and [re-request security caveat][cl-security] apply.
+A balance query alone cannot guarantee fulfillment or reserve fees against other pending requests
+or consumers. Restricting sponsors or imposing a finite retry count would weaken the accepted
+permissionless expiry-recovery design; a node's timeout must not be guessed. No on-chain minimum,
+retry restriction or financial guarantee was added. The README no longer implies every bad
+configuration fails immediately: insufficient funding can still accept a request.
+
+### P-L3 — Keep configuration repair accessible through ownership handoffs
+
+**Locations:** `src/BMCIlluminatiPass.sol`, inheritance line 41, `renounceOwnership` lines 194–197;
+vendored OpenZeppelin `Ownable2Step.transferOwnership` and `acceptOwnership`.
+
+**Before-fix reproduction:** The current owner transfers to an unintended address: ownership
+changes immediately and the previous owner's `setVRFConfig` reverts. Separately, renunciation
+sets owner to zero and every caller loses that setter. Both behaviors were independently reproduced.
+
+**Resolution/evidence:** Use the existing vendored `Ownable2Step`. The old owner retains its powers
+until the nominated recipient accepts. A proposal can be cancelled with a zero-address proposal or
+replaced without surrendering ownership. Renunciation now reverts. The three ownership regressions
+in `test/VRFConfigSafety.t.sol` exercise authorized acceptance, unauthorized acceptance/configuration,
+proposal cancellation/replacement, and retained repair after blocked renunciation. Constructor owner
+and arguments stay unchanged. These changes do not prevent lost signing keys, a malicious current
+owner or acceptance by an unintended recipient able to sign; those remain administration risks.
+
+### P-L4 — Pending does not mean unpredictable
+
+**Locations:** `src/BMCIlluminatiPass.sol`, `finalizeReveals` lines 356–367 and `_pendingJson`
+lines 540–550 (description line 546).
+
+**Reproduction:** Mint 41 and 42. Deliver `0xBEEF` for 42 while 41 lacks a word. Finalization
+returns zero and token 42 remains Pending/RandomnessStored. Its slot is
+`keccak256(abi.encode(uint256(0xBEEF), uint256(42))) % 459 == 331`.
+Deliver word 1 to token 41: its slot is 169, and token 42 becomes Standard artwork 295, as predicted.
+Before the revision its pending description incorrectly said the outcome was not determined.
+
+**Resolution/evidence:** Description now discloses public randomness and computable outcomes
+before in-order finalization, including the waiting-for-predecessor state. Regression
+`test_PendingMetadataDisclosesPredictableStoredOutcome` verifies the disclosure and the concrete
+prediction. This is an accurate disclosure fix, not an algorithmic solution to information
+asymmetry: final tier/artwork still require predecessor finalization. No provisional prediction
+is rendered as an authoritative outcome.
+
+Revision validation uses unchanged compiler/build/dependencies: **87 offline passes, no failures,
+four reported skips**, and **10 dedicated Mainnet fork passes**. Fork block hash:
+`0x57935951c91171a2e955f162df55f65474e516347408d5aa6fb804d3b8cbacfe`.
+The nominated subscription again read 0 LINK, 0.02 ETH and no consumers. The registered nominated
+lane still returns `true, 500 gwei`. Full logs/commands are in [TEST-RESULTS.md](TEST-RESULTS.md).
+These are local contributor observations, not independent certification or authorization to deploy.
+
+## Severity-ranked findings — unchanged V3 baseline
 
 | ID | Severity | Finding | Status |
 | --- | --- | --- | --- |
@@ -246,7 +369,7 @@ per-token mappings, so removing them there would be a behavior change without th
   argument. Both analyzed runtimes have no DELEGATECALL, CALLCODE or SELFDESTRUCT opcodes after PUSH
   data is skipped, and no external library link references. Production's repaired constructor
   was actually called through a CREATE2 factory on an empty local chain with codeless dependency
-  addresses. Its runtime is **22,986 bytes**, 1,590 bytes below EIP-170.
+  addresses. Its revised runtime is **23,757 bytes**, 819 bytes below EIP-170 (accepted pre-revision runtime: 22,986 bytes).
 
 ## Production repair limits and release conditions
 
@@ -259,8 +382,9 @@ Recovery is conditional on a functioning immutable coordinator and a serviceable
 Timed retries can create multiple legitimate proofs for one token; oracle/validator withholding or
 ordering can influence which is delivered first. They can also spend additional subscription funds
 if several delayed requests are eventually served. The contract cannot prove off-chain expiry.
-Renouncing ownership can strand later subscription/lane repairs. These are material residual
-assumptions to review before accepting the production repair for release.
+Two-step transfer and disabled renunciation now protect the configuration role against accidental
+handoff/renunciation; losing access to the owner or subscription-admin key still strands repairs.
+These are material residual assumptions to review before accepting production for release.
 
 Before deploying **V3**, resolve H-1/H-2/M-1 in a reviewed candidate, retest the exact resulting
 artifact, choose and verify the operational VRF configuration, register its consumer address,
