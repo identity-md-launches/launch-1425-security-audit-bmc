@@ -1,0 +1,246 @@
+No files changed, compilation skipped
+
+Ran 4 tests for test/audit/CandidateV3FailurePaths.t.sol:CandidateV3ConstructorBoundsTest
+[PASS] test_AcceptsExactConfigurationBoundsWithoutDependencyCalls() (gas: 10994091)
+[PASS] test_RejectsEachInvalidVRFBoundary() (gas: 4709827)
+[PASS] test_RejectsPresentAndPastDeadlines() (gas: 1187233)
+[PASS] test_RejectsZeroOwnerDependencyAndEmptyCID() (gas: 2313151)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 6.88ms (5.16ms CPU time)
+
+Ran 2 tests for test/audit/CandidateV3FailurePaths.t.sol:CandidateV3DeploymentEncodingTest
+[PASS] test_ConstructorABIHasDynamicArgumentStaticWordsCannotEncode() (gas: 6101321)
+[PASS] test_PrecomputedDeadlineLandingLateLeavesNoSaleWindow() (gas: 6331144)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 4.36ms (2.73ms CPU time)
+
+Ran 1 test for test/VRFConfigMainnetFork.t.sol:VRFConfigMainnetForkTest
+[SKIP: skipped] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 789.79µs (0.00ns CPU time)
+
+Ran 10 tests for test/VRFConfigSafety.t.sol:VRFConfigSafetyTest
+[PASS] test_EmptyOrShortLaneLookupRollsBackMint() (gas: 502180)
+[PASS] test_MalformedLaneTupleRollsBackMint() (gas: 502534)
+[PASS] test_MissingCoordinatorCodeRefusesMysteryMintAfterEmptyChainDeployment() (gas: 5931787)
+[PASS] test_MistypedHandoffCanBeCancelledOrReplacedWithoutLosingRepair() (gas: 242142)
+[PASS] test_OwnerTypoRefusesMintUntilLaneRepaired() (gas: 791260)
+[PASS] test_RenounceCannotRemoveRecoveryRole() (gas: 86979)
+[PASS] test_RetiredLaneRefusesMintAndRetryWithoutLosingOriginalRequest() (gas: 1169376)
+[PASS] test_RevertingLaneLookupRollsBackMint() (gas: 252377)
+[PASS] test_TwoStepHandoffKeepsRepairWithCurrentOwnerUntilAcceptance() (gas: 298312)
+[PASS] test_UnregisteredConstructorLaneRefusesMintAndRollsBackBurn() (gas: 5935345)
+Suite result: ok. 10 passed; 0 failed; 0 skipped; finished in 24.31ms (19.70ms CPU time)
+
+Ran 3 tests for test/FactoryDeployment.t.sol:FactoryDeploymentTest
+[PASS] test_ConstructorRejectsInvalidVRFWords() (gas: 10731)
+[PASS] test_ConstructorRejectsMissingOwnerOrDependencies() (gas: 8911)
+[PASS] test_FactoryDeploysWithEightStaticArgumentsAndNoDependencyCalls() (gas: 16590696)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 92.78ms (92.01ms CPU time)
+
+Ran 2 tests for test/BMCMainnetFork.t.sol:BMCMainnetForkTest
+[SKIP] test_RealBMCGenesisMint() (gas: 0)
+[SKIP] test_RealBMCMysteryMintAndRetryWithoutAnotherBurn() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 2 skipped; finished in 494.46µs (59.40µs CPU time)
+
+Ran 11 tests for test/VRFRecovery.t.sol:VRFRecoveryTest
+[PASS] testFuzz_FirstDeliveredWordWins(bool,uint256) (runs: 64, μ: 1320655, ~: 1357980)
+[PASS] test_CallbackFailureCanRecover() (gas: 652280)
+[PASS] test_CoordinatorCannotReenterRetry() (gas: 545454)
+[PASS] test_ExpiredRequestRecoveryUnblocksSuccessorsWithoutAnotherBurn() (gas: 1291936)
+[PASS] test_FailedRetryPreservesOriginalAndTimestamp() (gas: 596755)
+[PASS] test_InvalidCoordinatorIdsRevertAndRollBackBurnOrRetry() (gas: 6331336)
+[PASS] test_OwnerCanRepairSubscriptionAndLaneForPermissionlessRetry() (gas: 736762)
+[PASS] test_RetryDelayBoundaryAndReset() (gas: 694844)
+[PASS] test_RetryRejectsGenesisAndNonexistentTokens() (gas: 99121)
+[PASS] test_StoredSuccessorCannotBeRerequested() (gas: 673733)
+[PASS] test_ZeroRandomWordIsAcceptedAfterRetry() (gas: 605592)
+Suite result: ok. 11 passed; 0 failed; 0 skipped; finished in 427.21ms (419.72ms CPU time)
+
+Ran 4 tests for test/audit/CandidateV3ChainlinkIntegration.t.sol:CandidateV3ChainlinkIntegrationTest
+[PASS] testFuzz_V25RequestAndBillingUsesConfiguredCurrency(bool) (runs: 64, μ: 12269247, ~: 12278544)
+[PASS] test_ImmediateFundingAfterInsufficientBalanceRecoversWithinMock() (gas: 12263749)
+[PASS] test_MissingConsumerSubmissionCanRecoverByRegistration() (gas: 12252076)
+[PASS] test_UnregisteredLaneSubmissionIsAtomicThenWorksWhenLaneReturns() (gas: 12306223)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 456.82ms (475.26ms CPU time)
+
+Ran 1 test for test/audit/CandidateV3MainnetFork.t.sol:CandidateV3MainnetForkTest
+[SKIP: skipped] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.21ms (0.00ns CPU time)
+
+Ran 5 tests for test/ChainlinkMockIntegration.t.sol:ChainlinkMockIntegrationTest
+[PASS] test_ImmediateFundingAllowsMockFulfillment() (gas: 972319)
+[PASS] test_NotAConsumerReverts() (gas: 390797)
+[PASS] test_RequestAndFulfilThroughChainlinkMock() (gas: 782348)
+[PASS] test_SeveralRequestsOutOfOrderThroughChainlinkMock() (gas: 1959888)
+[PASS] test_UnfundedMintAndPermissionlessRetryCanChargeForIgnoredDelivery() (gas: 1524424)
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 21.52ms (5.60ms CPU time)
+
+Ran 40 tests for test/BMCIlluminatiPass.t.sol:BMCIlluminatiPassTest
+[PASS] testFuzz_SingleRevealAlwaysInInventory(uint256) (runs: 64, μ: 10986009, ~: 10983923)
+[PASS] test_CIDConstantAndHasNoSetter() (gas: 47688)
+[PASS] test_CallbackBatchIsGasAware() (gas: 12131118)
+[PASS] test_Constants() (gas: 82469)
+[PASS] test_DeployScriptConfig() (gas: 10974564)
+[PASS] test_DeployScriptRequiresOwner() (gas: 5950558)
+[PASS] test_ExcessAllowanceOnlyBurnsPrice() (gas: 341731)
+[PASS] test_FinalizationOrderCannotBeChosen() (gas: 11985748)
+[PASS] test_FirstMinterGetsLegendaryGenesis1() (gas: 2070143)
+[PASS] test_FulfillRevealsAndLocksMetadata() (gas: 17276314)
+[PASS] test_Full500MintSimulation() (gas: 280562570)
+[PASS] test_FullMintOutWithInOrderFulfillment() (gas: 246879281)
+[PASS] test_GenesisRevertsAfterPhase1() (gas: 10531066)
+[PASS] test_MintingIsConfiguredByConstructor() (gas: 10950806)
+[PASS] test_Mints2To40AreSequentialGenesis() (gas: 14427945)
+[PASS] test_MysteryBurnRevertsIfVRFRequestFails() (gas: 10690832)
+[PASS] test_MysteryRevertsDuringPhase1() (gas: 455836)
+[PASS] test_NoOwnerMintOrWithdrawSurface() (gas: 81153)
+[PASS] test_OnlyCoordinatorCanFulfill() (gas: 10901623)
+[PASS] test_OutOfOrderFulfillmentFinalizesInMintOrder() (gas: 12213508)
+[PASS] test_PendingMetadataDisclosesPredictableStoredOutcome() (gas: 14674012)
+[PASS] test_PendingMetadataIsNeutral() (gas: 13767713)
+[PASS] test_PendingTokenRemainsTransferableAfterConfigChange() (gas: 10996596)
+[PASS] test_PermissionlessFinalizationWhenCallbackGasTooLow() (gas: 11069378)
+[PASS] test_Phase1CostsExactlyOneMillion() (gas: 390192)
+[PASS] test_Phase2CostsExactly350k() (gas: 10957023)
+[PASS] test_ReentrancyGenesisBlocked() (gas: 884646)
+[PASS] test_ReentrancyMysteryBlocked() (gas: 11371088)
+[PASS] test_RevertInsufficientAllowance() (gas: 179285)
+[PASS] test_RevertInsufficientBalance() (gas: 193157)
+[PASS] test_RevertNoAllowance() (gas: 144231)
+[PASS] test_RevertWhenTokenDecimalsUnexpected() (gas: 728725)
+[PASS] test_RevertWhenTokenDoesNotActuallyBurn() (gas: 745191)
+[PASS] test_StandardArtCombinationsUnique() (gas: 1482872)
+[PASS] test_StandardArtCoversEveryTrait() (gas: 743699)
+[PASS] test_StandardArtRendersWithoutGenesisTraits() (gas: 30070221)
+[PASS] test_StandardMetadataAfterReveal() (gas: 19964811)
+[PASS] test_TransfersAreStandard() (gas: 469524)
+[PASS] test_VRFConfigValidation() (gas: 252914)
+[PASS] test_ViewsRevertForNonexistent() (gas: 33660)
+Suite result: ok. 40 passed; 0 failed; 0 skipped; finished in 6.03s (3.10s CPU time)
+
+Ran 13 tests for test/audit/CandidateV3Audit.t.sol:CandidateV3AuditTest
+[PASS] testFuzz_FullInventoryUniqueAndBatchIndependent(uint256,uint16) (runs: 64, μ: 107624197, ~: 105488653)
+[PASS] test_BurnFromReentrancyIsBlockedInBothPhases() (gas: 12676484)
+[PASS] test_CIDHasNoSetterAndOwnerCannotChangeSeed() (gas: 6234240)
+[PASS] test_CallbackFits150kWithStorageMargin() (gas: 11696301)
+[PASS] test_DeadlineBoundaryAndUnsoldSupply() (gas: 6458684)
+[PASS] test_FakeBurnAndWrongDecimalsRejected() (gas: 12314240)
+[PASS] test_GenesisReceiverReentrancyIsBlocked() (gas: 742711)
+[PASS] test_MysteryReceiverReentrancyIsBlocked() (gas: 6451430)
+[PASS] test_NoEarlyOwnerClosure() (gas: 70281)
+[PASS] test_OnlyCoordinatorAndKnownRequestCanDeliver() (gas: 6132704)
+[PASS] test_ReceiverRejectionRollsBackIrreversibleBurn() (gas: 527303)
+[PASS] test_RejectsDeadlineThatHasAlreadyElapsed() (gas: 607599)
+[PASS] test_ZeroSeedAndDuplicateDeliveryAreSafe() (gas: 7079410)
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 8.14s (8.19s CPU time)
+
+Ran 2 tests for test/audit/CandidateV3Invariants.t.sol:CandidateV3SaleInvariantTest
+[PASS] invariant_BurnOwnershipInventoryAndFinality() (runs: 256, calls: 8192, reverts: 0)
+
+╭-------------------+----------------------------+-------+---------+----------╮
+| Contract          | Selector                   | Calls | Reverts | Discards |
++=============================================================================+
+| V3SequenceHandler | advanceTime                | 855   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | closeOrRequest             | 772   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | deliver                    | 777   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | donateBMC                  | 809   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | finalize                   | 848   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | mintBatch                  | 809   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | moveBMC                    | 824   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectForgedDelivery       | 891   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectUnauthorizedTransfer | 793   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | transferNFT                | 814   | 0       | 0        |
+╰-------------------+----------------------------+-------+---------+----------╯
+
+[PASS] test_HandlerExercisesBothPhasesRejectionsTransfersAndSettlement() (gas: 10558420)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 28.23s (28.25s CPU time)
+
+Ran 1 test for test/audit/CandidateV3Invariants.t.sol:CandidateV3PendingInvariantTest
+[PASS] invariant_BurnOwnershipInventoryAndFinality() (runs: 256, calls: 8192, reverts: 0)
+
+╭-------------------+----------------------------+-------+---------+----------╮
+| Contract          | Selector                   | Calls | Reverts | Discards |
++=============================================================================+
+| V3SequenceHandler | advanceTime                | 855   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | closeOrRequest             | 772   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | deliver                    | 777   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | donateBMC                  | 809   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | finalize                   | 848   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | mintBatch                  | 809   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | moveBMC                    | 824   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectForgedDelivery       | 891   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectUnauthorizedTransfer | 793   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | transferNFT                | 814   | 0       | 0        |
+╰-------------------+----------------------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 55.82s (55.81s CPU time)
+
+Ran 1 test for test/audit/CandidateV3Invariants.t.sol:CandidateV3SelloutInvariantTest
+[PASS] invariant_BurnOwnershipInventoryAndFinality() (runs: 64, calls: 2048, reverts: 0)
+
+╭-------------------+----------------------------+-------+---------+----------╮
+| Contract          | Selector                   | Calls | Reverts | Discards |
++=============================================================================+
+| V3SequenceHandler | advanceTime                | 231   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | closeOrRequest             | 185   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | deliver                    | 185   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | donateBMC                  | 175   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | finalize                   | 256   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | mintBatch                  | 211   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | moveBMC                    | 206   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectForgedDelivery       | 222   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectUnauthorizedTransfer | 182   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | transferNFT                | 195   | 0       | 0        |
+╰-------------------+----------------------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 102.02s (101.90s CPU time)
+
+Ran 20 tests for test/audit/CandidateV3FailurePaths.t.sol:CandidateV3FailurePathsTest
+[PASS] testFuzz_BurnMismatchCannotConsumeBalanceAllowanceOrInventory(uint8,bool) (runs: 256, μ: 9696947, ~: 12476559)
+[PASS] testFuzz_InsufficientAllowanceRollsBackBothPhases(bool,uint256) (runs: 1000, μ: 3010308, ~: 5803679)
+[PASS] testFuzz_InsufficientBalanceRestoresSpentAllowance(bool,uint256) (runs: 1000, μ: 3048088, ~: 5839566)
+[PASS] testFuzz_RevealPartitionAndTransfersDoNotAffectAssignment(uint256,uint16,uint8) (runs: 128, μ: 53490604, ~: 39046438)
+[PASS] test_CannotPayETHInsteadOfBurningOrReopenClosedSale() (gas: 5918553)
+[PASS] test_EmptyAndUnknownCallbacksDoNotPoisonLaterValidDelivery() (gas: 6233192)
+[PASS] test_FailedSeedSubmissionRollsBackAutomaticCloseAndCanBeResubmitted() (gas: 6282258)
+[PASS] test_FullSupplyAndMaximumSeedAreIndependentOfBatching() (gas: 142603166)
+[PASS] test_GenesisArtworkAndMetadataSurviveTransferAndOwnershipRenunciation() (gas: 527868)
+[PASS] test_GenesisDeadlineBoundaryRollsBackWithoutExplicitClosure() (gas: 362098)
+[PASS] test_MalformedLaneRepliesFailClosedWithoutClosingSale() (gas: 12324302)
+[PASS] test_MysteryReceiverRejectionRestoresBurnAndDoesNotConsumePosition() (gas: 6246885)
+[PASS] test_NonexistentAndWrongTierViewsRejectZeroAndMaximum() (gas: 5909309)
+[PASS] test_OneMysteryWithZeroSeedIsIndependentOfBatching() (gas: 7172373)
+[PASS] test_OneWeiShortBalanceRestoresExactAllowance() (gas: 204270)
+[PASS] test_OneWeiShortMysteryAllowanceRejectedBeforeBurn() (gas: 5808499)
+[PASS] test_PendingTransferCannotChangeFinalOutcomeOrChargeNewHolder() (gas: 7031109)
+[PASS] test_PrematureMysteryAndSeedRequestsCannotSpendBMC() (gas: 130761)
+[PASS] test_ZeroAllowanceRejectedBeforeBurn() (gas: 161520)
+[PASS] test_ZeroRequestIdRevertsCoordinatorStateAndAllowsCleanSubmission() (gas: 11868762)
+Suite result: ok. 20 passed; 0 failed; 0 skipped; finished in 104.25s (11.39s CPU time)
+
+Ran 16 test suites in 104.26s (305.53s CPU time): 116 tests passed, 0 failed, 4 skipped (120 total tests)

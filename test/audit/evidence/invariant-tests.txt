@@ -1,0 +1,102 @@
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 10.60s
+Compiler run successful!
+
+Ran 2 tests for test/audit/CandidateV3Invariants.t.sol:CandidateV3SaleInvariantTest
+[PASS] invariant_BurnOwnershipInventoryAndFinality() (runs: 256, calls: 8192, reverts: 0)
+
+╭-------------------+----------------------------+-------+---------+----------╮
+| Contract          | Selector                   | Calls | Reverts | Discards |
++=============================================================================+
+| V3SequenceHandler | advanceTime                | 807   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | closeOrRequest             | 801   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | deliver                    | 844   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | donateBMC                  | 847   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | finalize                   | 814   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | mintBatch                  | 827   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | moveBMC                    | 815   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectForgedDelivery       | 835   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectUnauthorizedTransfer | 795   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | transferNFT                | 807   | 0       | 0        |
+╰-------------------+----------------------------+-------+---------+----------╯
+
+[PASS] test_HandlerExercisesBothPhasesRejectionsTransfersAndSettlement() (gas: 10558376)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 49.50s (49.48s CPU time)
+
+Ran 1 test for test/audit/CandidateV3Invariants.t.sol:CandidateV3PendingInvariantTest
+[PASS] invariant_BurnOwnershipInventoryAndFinality() (runs: 256, calls: 8192, reverts: 0)
+
+╭-------------------+----------------------------+-------+---------+----------╮
+| Contract          | Selector                   | Calls | Reverts | Discards |
++=============================================================================+
+| V3SequenceHandler | advanceTime                | 807   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | closeOrRequest             | 801   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | deliver                    | 844   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | donateBMC                  | 847   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | finalize                   | 814   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | mintBatch                  | 827   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | moveBMC                    | 815   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectForgedDelivery       | 835   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectUnauthorizedTransfer | 795   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | transferNFT                | 807   | 0       | 0        |
+╰-------------------+----------------------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 99.43s (99.38s CPU time)
+
+Ran 1 test for test/audit/CandidateV3Invariants.t.sol:CandidateV3SelloutInvariantTest
+[PASS] invariant_BurnOwnershipInventoryAndFinality() (runs: 64, calls: 2048, reverts: 0)
+
+╭-------------------+----------------------------+-------+---------+----------╮
+| Contract          | Selector                   | Calls | Reverts | Discards |
++=============================================================================+
+| V3SequenceHandler | advanceTime                | 196   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | closeOrRequest             | 201   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | deliver                    | 194   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | donateBMC                  | 227   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | finalize                   | 213   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | mintBatch                  | 213   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | moveBMC                    | 195   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectForgedDelivery       | 225   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | rejectUnauthorizedTransfer | 183   | 0       | 0        |
+|-------------------+----------------------------+-------+---------+----------|
+| V3SequenceHandler | transferNFT                | 201   | 0       | 0        |
+╰-------------------+----------------------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 176.88s (176.73s CPU time)
+
+╭---------------------------------+--------+--------+---------╮
+| Test Suite                      | Passed | Failed | Skipped |
++=============================================================+
+| CandidateV3PendingInvariantTest | 1      | 0      | 0       |
+|---------------------------------+--------+--------+---------|
+| CandidateV3SaleInvariantTest    | 2      | 0      | 0       |
+|---------------------------------+--------+--------+---------|
+| CandidateV3SelloutInvariantTest | 1      | 0      | 0       |
+╰---------------------------------+--------+--------+---------╯
+
